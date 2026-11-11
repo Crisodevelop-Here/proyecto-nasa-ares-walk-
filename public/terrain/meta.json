@@ -1,0 +1,17 @@
+{
+  "source": "HiRISE DTEEC_001488_1750_001752_1750_U02 + PSP_001488_1750 RED_C / IRB_C orthos (NASA/JPL/UArizona)",
+  "site": "Mount Sharp (Aeolis Mons), Gale crater",
+  "sizeM": 2072.1,
+  "grid": 1024,
+  "zMin": -4280.79,
+  "zMax": -3618.51,
+  "metersPerPixel": 1.0117,
+  "nw": [
+    -4.81868,
+    137.27734
+  ],
+  "se": [
+    -4.85364,
+    137.3123
+  ]
+}

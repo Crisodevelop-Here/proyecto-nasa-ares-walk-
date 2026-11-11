@@ -1,0 +1,67 @@
+import type { Station } from '../types'
+
+// Positions picked on flat spots (mean slope < 9°) of the HiRISE DTM crop, near each geologic feature.
+export const STATIONS: Station[] = [
+  {
+    id: 'hab',
+    name: 'Hábitat / rover',
+    kind: 'habitat',
+    emoji: '🏠',
+    u: 0.246,
+    v: 0.57,
+    goal: 'Punto de salida y regreso de la caminata.',
+    why: 'Zona llana (pendiente media 2°) donde el rover presurizado puede estacionar.',
+    tools: ['Rover presurizado', 'Recarga de O₂ y baterías'],
+    workMin: 0,
+  },
+  {
+    id: 'boxwork',
+    name: 'Crestas reticuladas',
+    kind: 'science',
+    emoji: '🧩',
+    u: 0.223,
+    v: 0.453,
+    goal: 'Muestrear las crestas en forma de red (tipo boxwork).',
+    why: 'Las crestas se forman cuando agua subterránea rellena grietas con minerales más duros. Son una pista de agua antigua bajo la superficie: es lo que Curiosity estudió en 2025.',
+    tools: ['Martillo de roca', 'Espectrómetro de mano', 'Bolsas de muestra'],
+    workMin: 40,
+  },
+  {
+    id: 'contact',
+    name: 'Contacto de capas',
+    kind: 'science',
+    emoji: '🪨',
+    u: 0.582,
+    v: 0.43,
+    goal: 'Fotografiar y medir el cambio entre dos capas de roca.',
+    why: 'El contacto marca un cambio en el clima de Marte: de un ambiente más húmedo (arcillas) a uno más seco (sulfatos).',
+    tools: ['Cámara estéreo', 'Brújula geológica', 'Escala de color'],
+    workMin: 30,
+  },
+  {
+    id: 'mounds',
+    name: 'Montículos claros',
+    kind: 'science',
+    emoji: '⛰️',
+    u: 0.594,
+    v: 0.781,
+    goal: 'Tomar una muestra de núcleo de un montículo claro.',
+    why: 'Los tonos claros sugieren sulfatos hidratados: candidatos para guardar rastros químicos de vida antigua.',
+    tools: ['Taladro de núcleos', 'Contenedor estéril'],
+    workMin: 35,
+  },
+  {
+    id: 'mesa',
+    name: 'Mesa de capa dura',
+    kind: 'science',
+    emoji: '🏔️',
+    u: 0.531,
+    v: 0.062,
+    goal: 'Observar la capa oscura que corona la mesa.',
+    why: 'Las capas resistentes protegen a las de abajo de la erosión del viento; su espesor ayuda a reconstruir la historia de Gale.',
+    tools: ['Binoculares', 'Telémetro láser'],
+    workMin: 20,
+  },
+]
+
+export const STATION_BY_ID = Object.fromEntries(STATIONS.map((s) => [s.id, s])) as Record<string, Station>

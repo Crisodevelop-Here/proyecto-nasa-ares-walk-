@@ -31,12 +31,17 @@ Es un globo 3D de Marte en el que se puede hacer clic en **cualquier punto** par
 
 ## Ejecutar
 
+Necesita Node 22 o superior.
+
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # rutas, geometría, datos de misiones y ambiente
+npm run check      # tipos + lint (Oxlint) + formato (Prettier) + pruebas unitarias
+npm run test:e2e   # pruebas en el navegador con Playwright (recorrido, celular, idioma, accesibilidad)
 npm run build      # versión estática en dist/
 ```
+
+GitHub Actions corre `check`, `build` y las pruebas en el navegador en cada cambio (`.github/workflows/ci.yml`).
 
 ## Datos
 
@@ -50,6 +55,14 @@ npm run build      # versión estática en dist/
 | Terreno 1 m (`public/terrain/`) | HiRISE DTEEC_001488_1750_001752_1750 + PSP_001488_1750 | Dominio público |
 | Misiones (`src/data/missions.ts`) | Aterrizajes y hitos publicados por NASA/JPL | Los puntos intermedios de los recorridos son **aproximados (±1 km)**; conviene sustituirlos por los archivos MMGIS oficiales |
 | Radiación y ambiente | RAD y REMS de Curiosity, Viking (`src/data/environment.ts`) | Estimaciones de orden de magnitud |
+
+Los datos de relieve (`public/mola32/` y `public/terrain/*.bin`) se guardan con **Git LFS**. Al clonar:
+
+```bash
+git lfs install
+git clone <repo>          # descarga también los datos LFS
+git lfs pull              # si se clonó antes de instalar LFS
+```
 
 Para regenerar los tiles:
 

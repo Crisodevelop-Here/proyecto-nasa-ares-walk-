@@ -28,9 +28,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: check
     steps:
+      # No LFS download here (saves the monthly LFS bandwidth): without the 32 px/° tiles the app
+      # falls back to the global 4 px/° relief, which is enough to test the interface.
       - uses: actions/checkout@v4
-        with:
-          lfs: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22

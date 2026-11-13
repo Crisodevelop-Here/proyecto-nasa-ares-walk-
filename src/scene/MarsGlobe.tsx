@@ -1,8 +1,9 @@
 import { useTexture } from '@react-three/drei'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
-import { forwardRef, useMemo, useRef } from 'react'
+import { forwardRef, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { MISSIONS, type Mission } from '../data/missions'
+import { trekGlobeCanvas } from '../region/regionLayers'
 import { groundUniforms } from './groundUniforms'
 import { DISPLACEMENT_BIAS, DISPLACEMENT_SCALE, latLonOf, onSphere, R, smoothstep } from './mars'
 
@@ -244,6 +245,28 @@ export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ vie
   normal.colorSpace = THREE.NoColorSpace
 
   const surface = useRef<THREE.MeshStandardMaterial>(null)
+  // Swap in the NASA Mars Trek colour mosaic (Viking MDIM 2.1) once its tiles load; the bundled
+  // texture stays if Trek is offline.
+  useEffect(() => {
+    let live = true
+    let tex: THREE.CanvasTexture | null = null
+    trekGlobeCanvas()
+      .then((c) => {
+        const m = surface.current
+        if (!live || !m) return
+        tex = new THREE.CanvasTexture(c)
+        tex.colorSpace = THREE.SRGBColorSpace
+        tex.anisotropy = 16
+        m.map = tex
+        m.needsUpdate = true
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+      if (tex && surface.current?.map === tex) surface.current.map = map
+      tex?.dispose()
+    }
+  }, [map])
   const atmo = useMemo(atmosphereMaterial, [])
   const markers = useRef<THREE.Group>(null)
   const markerFade = useRef(1)

@@ -45,7 +45,8 @@ npm run build      # versión estática en dist/
 | Relieve regional (`public/mola32/`, 648 tiles, ~127 MB) | MGS MOLA MEGDR 32 px/grado `megt90n000fb.img`, PDS Geosciences Node | Se genera con `scripts/mola_tiles.py`. Si falta, se usa el relieve global de 4 px/grado |
 | Relieve del globo (`public/globe/mola_*`) | MOLA MEGDR 4 px/grado, `scripts/mola_to_png.py` | Dominio público |
 | Imagen óptica regional | NASA Mars Trek WMTS, mosaico Viking MDIM 2.1 | Necesita internet; si no responde, se usa la textura global + sombreado MOLA |
-| Textura global (`mars_4k.jpg`) | Solar System Scope, a partir de NASA MOLA/Viking | CC BY 4.0, hay que citarla |
+| Textura del globo | NASA Mars Trek WMTS, mosaico Viking MDIM 2.1 (se arma con sus teselas al abrir la app) | Necesita internet; si no responde, se usa `mars_4k.jpg` |
+| Textura global de respaldo (`mars_4k.jpg`) | Solar System Scope, a partir de NASA MOLA/Viking | CC BY 4.0, hay que citarla |
 | Terreno 1 m (`public/terrain/`) | HiRISE DTEEC_001488_1750_001752_1750 + PSP_001488_1750 | Dominio público |
 | Misiones (`src/data/missions.ts`) | Aterrizajes y hitos publicados por NASA/JPL | Los puntos intermedios de los recorridos son **aproximados (±1 km)**; conviene sustituirlos por los archivos MMGIS oficiales |
 | Radiación y ambiente | RAD y REMS de Curiosity, Viking (`src/data/environment.ts`) | Estimaciones de orden de magnitud |

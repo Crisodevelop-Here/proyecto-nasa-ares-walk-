@@ -334,13 +334,63 @@ async function trekCanvas(r: Region) {
   return c
 }
 
+let trekGlobe: Promise<HTMLCanvasElement> | null = null
+
+/**
+ * Whole-planet colour texture stitched from NASA Mars Trek tiles (Viking MDIM 2.1 colour mosaic),
+ * the same imagery Mars Trek shows. Picks the finest tile level whose full width fits `maxWidth` px.
+ * Rejects if Trek is unreachable or the tiles come without CORS; callers keep the bundled texture.
+ */
+export function trekGlobeCanvas(maxWidth = 4096): Promise<HTMLCanvasElement> {
+  trekGlobe ??= (async () => {
+    const { template, matrices } = await loadCaps()
+    let m = matrices[0]
+    for (const cand of matrices) if (cand.w * cand.tile <= maxWidth && cand.w * cand.tile > m.w * m.tile) m = cand
+    const W = m.w * m.tile
+    const c = document.createElement('canvas')
+    c.width = W
+    c.height = W / 2
+    const ctx = c.getContext('2d')!
+    // The Viking mosaic is flat and greyish next to lit 3D relief; lift colour a little so it reads like Mars Trek.
+    ctx.filter = 'saturate(1.35) contrast(1.08)'
+    const tw = W / m.w
+    const th = W / 2 / m.h
+    const jobs: Promise<void>[] = []
+    for (let row = 0; row < m.h; row++)
+      for (let col = 0; col < m.w; col++) {
+        const url = template
+          .replace('{TileMatrix}', m.id)
+          .replace('{TileRow}', String(row))
+          .replace('{TileCol}', String(col))
+          .replace('{Style}', 'default')
+          .replace('{TileMatrixSet}', 'default028mm')
+        jobs.push(loadImage(url).then((img) => ctx.drawImage(img, col * tw, row * th, tw, th)))
+      }
+    await Promise.all(jobs)
+    ctx.getImageData(0, 0, 1, 1) // throws if the canvas is tainted (no CORS)
+    return c
+  })()
+  trekGlobe.catch(() => {
+    trekGlobe = null
+  })
+  return trekGlobe
+}
+
 let globeImg: Promise<HTMLImageElement> | null = null
 const GROUND = 1536
 
+/** The texture the globe is wearing: the Mars Trek mosaic when it loads, else the bundled one. */
+async function globeSource(): Promise<HTMLImageElement | HTMLCanvasElement> {
+  const wait = new Promise<null>((res) => setTimeout(() => res(null), 8000))
+  const trek = await Promise.race([trekGlobeCanvas().catch(() => null), wait])
+  if (trek) return trek
+  globeImg ??= loadImage('/globe/mars_4k.jpg')
+  return globeImg
+}
+
 /** Global texture under the patch, softly upscaled (same colours as the globe). */
 async function globeCrop(r: Region, S: number) {
-  globeImg ??= loadImage('/globe/mars_4k.jpg')
-  const img = await globeImg
+  const img = await globeSource()
   const nw = uvToLatLon(r, { u: 0, v: 0 })
   const se = uvToLatLon(r, { u: 1, v: 1 })
   const lonSpan = (wrapLon(se.lon - nw.lon) + 360) % 360 || 360

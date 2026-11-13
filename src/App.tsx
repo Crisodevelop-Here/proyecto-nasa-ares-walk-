@@ -417,7 +417,7 @@ export default function App() {
       <p className="pointer-events-none absolute bottom-6 left-6 hidden text-[11px] leading-snug text-white/35 lg:block">
         {view === 'globe' ? 'Arrastra para girar · rueda para acercar · F pantalla completa' : 'Esc volver · 1 2 3 capas · arrastra para girar'}
         <br />
-        MOLA, HiRISE, Viking: NASA/JPL/GSFC/UArizona · Textura global: Solar System Scope (CC BY 4.0)
+        MOLA, HiRISE, Viking: NASA/JPL/GSFC/UArizona · Textura: NASA Mars Trek (Viking MDIM 2.1) · respaldo: Solar System Scope (CC BY 4.0)
       </p>
 
       <Loader />

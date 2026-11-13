@@ -308,10 +308,17 @@ export default function App() {
 
       {/* Layer switcher on the terrain */}
       {view !== 'globe' && !tourUI && (
-        <div className="card-in absolute left-2 top-2 flex gap-1 rounded-xl border border-white/10 bg-[#141a2b]/80 p-1 text-sm text-white backdrop-blur sm:left-6 sm:top-6">
+        <div
+          role="group"
+          aria-label="Capas del mapa"
+          className="card-in absolute left-2 top-2 flex gap-1 rounded-xl border border-white/10 bg-[#141a2b]/80 p-1 text-sm text-white backdrop-blur sm:left-6 sm:top-6"
+        >
           {layerButtons.map((l, i) => (
             <button
               key={l.id}
+              type="button"
+              aria-pressed={currentLayer === l.id}
+              aria-keyshortcuts={String(i + 1)}
               onClick={() => (view === 'site' ? setSiteLayer(l.id as SiteLayer) : setLayer(l.id as RegionLayer))}
               className={`rounded-lg px-3 py-1.5 font-medium transition ${currentLayer === l.id ? 'bg-orange-400 text-slate-900' : 'text-white/75 hover:bg-white/10'}`}
             >

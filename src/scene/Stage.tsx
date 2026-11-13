@@ -17,6 +17,8 @@ const Y = new THREE.Vector3(0, 1, 0)
 const TILT = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (-25.19 * Math.PI) / 180)
 /** Spin speed on the globe (rad/s): one turn in about 100 s. */
 const SPIN_SPEED = 0.063
+/** People who ask the system for less motion get a still globe (they can still drag it). */
+const REDUCED_MOTION = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 const SUN = new THREE.Vector3(0.78, 0.48, 0.4).normalize()
 
 interface Rig {
@@ -112,7 +114,7 @@ function Director({ view, focus, shot, siteY, regionY, regionSpan, planet, label
   useFrame((_, dt) => {
     // Ease the spin down while the pointer is on the planet (so clicks land) and back up after.
     // Stops almost at once under the pointer (so the click lands where the readout says), restarts gently.
-    const spinning = view === 'globe' && !hovering.current
+    const spinning = view === 'globe' && !hovering.current && !REDUCED_MOTION
     spinRate.current = THREE.MathUtils.damp(spinRate.current, spinning ? SPIN_SPEED : 0, spinning ? 1.5 : 14, dt)
     spin.current += dt * spinRate.current
     const goalQ = focusQ ?? q.copy(TILT).multiply(new THREE.Quaternion().setFromAxisAngle(Y, spin.current))
@@ -229,6 +231,8 @@ export function Stage({ view, focus, shot, siteTerrain, sitePlan, siteY, siteLay
     <Canvas
       camera={{ position: [0, 4, 36], fov: 38, near: 1e-6, far: 4000 }}
       dpr={dpr}
+      aria-label="Globo 3D de Marte: arrastra para girar, rueda para acercar, clic en un punto para bajar al terreno. También puedes usar los botones de misión."
+      role="region"
       gl={{ logarithmicDepthBuffer: true, antialias: true }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.ACESFilmicToneMapping

@@ -92,14 +92,37 @@ export function SidePanel(p: Props) {
               {p.view === 'site' ? ' · recorte de 2 × 2 km' : p.region && ` · ${fmt(p.region.centerZ / 1000, 2)} km de elevación`}
             </p>
           </div>
-          <button onClick={p.onBack} className="shrink-0 rounded-lg px-2.5 py-1.5 text-sm text-white/70 ring-1 ring-white/15 hover:bg-white/10 hover:text-white">
+          <button
+            type="button"
+            onClick={p.onBack}
+            aria-label={p.view === 'site' ? 'Volver a la vista regional' : 'Volver al globo'}
+            className="shrink-0 rounded-lg px-2.5 py-1.5 text-sm text-white/70 ring-1 ring-white/15 hover:bg-white/10 hover:text-white"
+          >
             {p.view === 'site' ? '← Región' : '← Globo'}
           </button>
         </div>
-        <nav className="mt-3 grid grid-cols-4 gap-1 rounded-xl bg-black/25 p-1 text-sm">
+        <nav
+          role="tablist"
+          aria-label="Información del lugar"
+          className="mt-3 grid grid-cols-4 gap-1 rounded-xl bg-black/25 p-1 text-sm"
+          onKeyDown={(e) => {
+            // Arrow keys move between tabs, as screen-reader users expect.
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
+            const i = TABS.findIndex((t) => t.id === p.tab)
+            const next = TABS[(i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length]
+            p.setTab(next.id)
+            document.getElementById(`tab-${next.id}`)?.focus()
+          }}
+        >
           {TABS.map((t) => (
             <button
               key={t.id}
+              id={`tab-${t.id}`}
+              type="button"
+              role="tab"
+              aria-selected={p.tab === t.id}
+              aria-controls="side-panel-content"
+              tabIndex={p.tab === t.id ? 0 : -1}
               onClick={() => p.setTab(t.id)}
               className={`rounded-lg py-1.5 font-medium transition ${p.tab === t.id ? 'bg-orange-400 text-slate-900' : 'text-white/70 hover:bg-white/10'}`}
             >
@@ -108,7 +131,7 @@ export function SidePanel(p: Props) {
           ))}
         </nav>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-sm leading-relaxed">
+      <div id="side-panel-content" role="tabpanel" aria-labelledby={`tab-${p.tab}`} tabIndex={0} className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-sm leading-relaxed">
         {!p.region && p.view === 'region' ? (
           <p className="text-white/60">Cargando relieve MOLA de la zona…</p>
         ) : p.tab === 'missions' ? (

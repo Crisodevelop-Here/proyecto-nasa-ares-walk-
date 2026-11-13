@@ -18,9 +18,14 @@ test('globe → Gale crater → tabs, layers and back', async ({ page }) => {
 
   // Side panel tabs.
   for (const tab of ['Objetivos', 'Ruta', 'Seguridad', 'Misiones']) {
-    await page.getByRole('button', { name: tab, exact: true }).click()
+    await page.getByRole('tab', { name: tab, exact: true }).click()
   }
-  await page.getByRole('button', { name: 'Objetivos', exact: true }).click()
+  await page.getByRole('tab', { name: 'Objetivos', exact: true }).click()
+  await expect(page.getByRole('tab', { name: 'Objetivos' })).toHaveAttribute('aria-selected', 'true')
+  // Arrow keys move between tabs.
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByRole('tab', { name: 'Ruta' })).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('ArrowLeft')
   await expect(page.getByText(/tipos de datos integrados/i)).toBeVisible()
 
   // Layer shortcut: 3 = slope legend.

@@ -50,6 +50,7 @@ export function GlobeOverlay({ view, labels, hoverEl, onPickMission }: Props) {
           {MISSIONS.filter((m) => m.kind === 'rover').map((m) => (
             <button
               key={m.id}
+              type="button"
               onClick={() => onPickMission(m)}
               className="flex items-center gap-2 rounded-full bg-[#141a2b]/75 px-3 py-1 text-sm text-white/85 ring-1 ring-white/10 backdrop-blur transition hover:bg-white/15"
             >
@@ -75,7 +76,7 @@ export function GlobeOverlay({ view, labels, hoverEl, onPickMission }: Props) {
 /** Controls hint and data credits, bottom-left. */
 export function Credits({ view }: { view: View }) {
   return (
-    <p className="pointer-events-none absolute bottom-6 left-6 hidden text-[11px] leading-snug text-white/35 lg:block">
+    <p className="pointer-events-none absolute bottom-6 left-6 hidden text-[11px] leading-snug text-white/55 lg:block">
       {view === 'globe' ? 'Arrastra para girar · rueda para acercar · F pantalla completa' : 'Esc volver · 1 2 3 capas · arrastra para girar'}
       <br />
       MOLA, HiRISE, Viking: NASA/JPL/GSFC/UArizona · Textura: NASA Mars Trek (Viking MDIM 2.1) · respaldo: Solar System Scope (CC BY 4.0)

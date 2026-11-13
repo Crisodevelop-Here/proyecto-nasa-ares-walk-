@@ -76,7 +76,9 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
       <div className="card-in absolute inset-x-2 bottom-2 z-40 rounded-2xl border border-white/10 bg-[#141a2b]/88 p-3 text-white shadow-2xl backdrop-blur sm:inset-x-6 sm:bottom-6 sm:p-4 lg:inset-x-auto lg:left-1/2 lg:w-[880px] lg:-translate-x-1/2">
         <div className="flex flex-wrap items-center gap-2">
           <button
+            type="button"
             onClick={onPlay}
+            aria-label={tour.playing ? 'Pausar recorrido' : done ? 'Repetir recorrido' : 'Reproducir recorrido'}
             className="grid h-10 w-10 place-items-center rounded-full bg-orange-400 text-lg font-bold text-slate-900 transition hover:bg-orange-300"
             title="Espacio"
           >

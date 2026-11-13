@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
+import { APP } from './app-url.ts'
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
 
 test('phone: mission shortcuts, foldable panel and no horizontal overflow', async ({ page }) => {
-  await page.goto('/')
+  await page.goto(APP)
   await page
     .getByRole('button', { name: /Curiosity/ })
     .first()

@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   // Software WebGL is slow; the full walkthrough needs room.
-  timeout: 150_000,
+  timeout: process.env.CI ? 300_000 : 150_000,
   expect: { timeout: 20_000 },
   use: {
     baseURL: 'http://localhost:5173',

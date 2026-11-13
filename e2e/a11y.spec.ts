@@ -1,5 +1,6 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
+import { APP } from './app-url.ts'
 
 // Automatic accessibility audit (axe-core, WCAG 2.1 A/AA) of the globe and the regional view.
 const scan = (page: import('@playwright/test').Page) => new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
@@ -7,7 +8,7 @@ const scan = (page: import('@playwright/test').Page) => new AxeBuilder({ page })
 test('globe and regional view have no WCAG A/AA violations', async ({ page }) => {
   // Measure colours at rest, not mid-transition (the app turns transitions off for reduced motion).
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.goto('/')
+  await page.goto(APP)
   await expect(page.getByText('Ir a una misión')).toBeVisible()
   await page.waitForTimeout(1500)
   const globe = await scan(page)

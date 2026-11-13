@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test'
+import { APP } from './app-url.ts'
 
 test('switches the whole interface to English and remembers it', async ({ page }) => {
-  await page.goto('/')
+  await page.goto(APP)
   await expect(page.getByText('Ir a una misión')).toBeVisible()
 
   await page.getByRole('button', { name: 'English' }).click()

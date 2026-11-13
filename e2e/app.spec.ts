@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
+import { APP } from './app-url.ts'
 
 test('globe → Gale crater → tabs, layers and back', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(String(e)))
-  await page.goto('/')
+  await page.goto(APP)
 
   await expect(page.getByRole('heading', { name: 'ARES·WALK' })).toBeVisible()
   await expect(page.getByText('Ir a una misión')).toBeVisible()

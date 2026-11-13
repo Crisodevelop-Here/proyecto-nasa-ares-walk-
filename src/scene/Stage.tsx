@@ -17,6 +17,11 @@ const Y = new THREE.Vector3(0, 1, 0)
 const TILT = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (-25.19 * Math.PI) / 180)
 /** Spin speed on the globe (rad/s): one turn in about 100 s. */
 const SPIN_SPEED = 0.063
+/**
+ * Light mode for very weak computers (and test machines without a GPU): open the app with `?lite`.
+ * Same features; lower resolution, simpler globe mesh and no antialiasing from the first frame.
+ */
+const LITE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('lite')
 /** People who ask the system for less motion get a still globe (they can still drag it). */
 const REDUCED_MOTION = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 const SUN = new THREE.Vector3(0.78, 0.48, 0.4).normalize()
@@ -242,17 +247,17 @@ export function Stage({ view, focus, shot, siteTerrain, sitePlan, siteY, siteLay
   }
   // Adaptive quality: render at the screen's full pixel ratio (up to 2×) and, if the frame rate
   // drops (e.g. 8 GB laptops with integrated graphics), lower it toward 1×. Nothing else changes.
-  const maxDpr = Math.min(2, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)
+  const maxDpr = LITE ? 0.75 : Math.min(2, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)
   const [dpr, setDpr] = useState(maxDpr)
   // Still slow at the lowest resolution → lighter globe mesh and texture (sticks once on).
-  const [low, setLow] = useState(false)
+  const [low, setLow] = useState(LITE)
   return (
     <Canvas
       camera={{ position: [0, 4, 36], fov: 38, near: 1e-6, far: 4000 }}
       dpr={dpr}
       aria-label="Globo 3D de Marte: arrastra para girar, rueda para acercar, clic en un punto para bajar al terreno. También puedes usar los botones de misión."
       role="region"
-      gl={{ logarithmicDepthBuffer: true, antialias: true }}
+      gl={{ logarithmicDepthBuffer: true, antialias: !LITE }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.ACESFilmicToneMapping
         gl.toneMappingExposure = 1.1

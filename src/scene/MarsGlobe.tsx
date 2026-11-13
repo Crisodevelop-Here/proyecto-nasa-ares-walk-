@@ -233,12 +233,14 @@ export type View = 'globe' | 'region' | 'site'
 
 interface Props {
   view: View
+  /** Low-end device: lighter sphere mesh and a 2048 px texture. */
+  low?: boolean
   onPick: (lat: number, lon: number, mission?: Mission) => void
   onHover: (p: { lat: number; lon: number } | null) => void
 }
 
 /** The planet. Lives inside the oriented planet group; the focused spot ends on top (+y). */
-export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ view, onPick, onHover }, ref) {
+export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ view, low = false, onPick, onHover }, ref) {
   const [map, height, normal] = useTexture(['/globe/mars_4k.jpg', '/globe/mola_height.png', '/globe/mola_normal.jpg'])
   map.colorSpace = THREE.SRGBColorSpace
   map.anisotropy = 16
@@ -254,9 +256,16 @@ export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ vie
       .then((c) => {
         const m = surface.current
         if (!live || !m) return
+        if (low && c.width > 2048) {
+          const small = document.createElement('canvas')
+          small.width = 2048
+          small.height = 1024
+          small.getContext('2d')!.drawImage(c, 0, 0, 2048, 1024)
+          c = small
+        }
         tex = new THREE.CanvasTexture(c)
         tex.colorSpace = THREE.SRGBColorSpace
-        tex.anisotropy = 16
+        tex.anisotropy = low ? 4 : 16
         m.map = tex
         m.needsUpdate = true
       })
@@ -266,7 +275,7 @@ export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ vie
       if (tex && surface.current?.map === tex) surface.current.map = map
       tex?.dispose()
     }
-  }, [map])
+  }, [map, low])
   const atmo = useMemo(atmosphereMaterial, [])
   const markers = useRef<THREE.Group>(null)
   const markerFade = useRef(1)
@@ -377,7 +386,7 @@ export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ vie
         }}
         onPointerOut={() => onHover(null)}
       >
-        <sphereGeometry args={[R, 512, 256]} />
+        <sphereGeometry args={[R, low ? 256 : 512, low ? 128 : 256]} />
         <meshStandardMaterial
           ref={surface}
           map={map}

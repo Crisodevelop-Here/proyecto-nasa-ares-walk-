@@ -57,16 +57,23 @@ const TILE = 320
 const W = 360 * PPD
 const H = 180 * PPD
 const tiles = new Map<string, Promise<Int16Array | null>>()
+/** Tiles kept in memory (~200 KB each); the least recently used are dropped. */
+const MAX_TILES = 48
 
 function loadTile(row: number, col: number) {
   const key = `r${row}_c${col}`
   let p = tiles.get(key)
-  if (!p) {
+  if (p) {
+    // Mark as most recently used.
+    tiles.delete(key)
+    tiles.set(key, p)
+  } else {
     p = fetch(`/mola32/${key}.bin`)
       .then((r) => (r.ok ? r.arrayBuffer() : null))
       .then((b) => (b && b.byteLength === TILE * TILE * 2 ? new Int16Array(b) : null))
       .catch(() => null)
     tiles.set(key, p)
+    while (tiles.size > MAX_TILES) tiles.delete(tiles.keys().next().value!)
   }
   return p
 }

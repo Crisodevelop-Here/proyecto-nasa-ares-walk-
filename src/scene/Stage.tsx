@@ -1,6 +1,6 @@
-import { OrbitControls } from '@react-three/drei'
+import { OrbitControls, PerformanceMonitor } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Suspense, useEffect, useMemo, useRef, type ReactNode, type RefObject } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { MISSIONS, type Mission } from '../data/missions'
@@ -219,23 +219,39 @@ export function Stage({ view, focus, shot, siteTerrain, sitePlan, siteY, siteLay
     hovering.current = !!p
     onHover(p)
   }
+  // Adaptive quality: render at the screen's full pixel ratio (up to 2×) and, if the frame rate
+  // drops (e.g. 8 GB laptops with integrated graphics), lower it toward 1×. Nothing else changes.
+  const maxDpr = Math.min(2, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)
+  const [dpr, setDpr] = useState(maxDpr)
+  // Still slow at the lowest resolution → lighter globe mesh and texture (sticks once on).
+  const [low, setLow] = useState(false)
   return (
     <Canvas
       camera={{ position: [0, 4, 36], fov: 38, near: 1e-6, far: 4000 }}
-      dpr={[1, 2]}
+      dpr={dpr}
       gl={{ logarithmicDepthBuffer: true, antialias: true }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.ACESFilmicToneMapping
         gl.toneMappingExposure = 1.1
       }}
     >
+      <PerformanceMonitor
+        factor={1}
+        flipflops={3}
+        onChange={({ factor }) => setDpr(Math.round((1 + (maxDpr - 1) * factor) * 4) / 4)}
+        onDecline={({ factor }) => factor <= 0.01 && setLow(true)}
+        onFallback={() => {
+          setDpr(1)
+          setLow(true)
+        }}
+      />
       <color attach="background" args={['#03040a']} />
       <ambientLight intensity={0.18} color="#c9d4ff" />
       <directionalLight position={SUN.clone().multiplyScalar(100)} intensity={3.2} color="#fff1e0" />
       <hemisphereLight args={['#ffd9b8', '#1a1020', 0.25]} />
       <StarField />
       <Suspense fallback={null}>
-        <MarsGlobe ref={planet} view={view} onPick={onPick} onHover={hover} />
+        <MarsGlobe ref={planet} view={view} low={low} onPick={onPick} onHover={hover} />
         {/* Phobos and Deimos orbit in Mars' equatorial plane (tilted with the planet's axis). */}
         <group quaternion={TILT}>
           <Moons view={view} />

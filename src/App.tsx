@@ -108,7 +108,8 @@ export default function App() {
       buildRegion(lat, lon, sizeKm).then(async (r) => {
         if (id !== request.current) return
         setRegion(r)
-        const base = { optical: texture(topoCanvas(r)), topo: texture(topoCanvas(r)), slope: texture(slopeCanvas(r)) }
+        const topo = texture(topoCanvas(r))
+        const base = { optical: topo, topo, slope: texture(slopeCanvas(r)) }
         setTextures(base)
         const o = await opticalCanvas(r)
         if (id !== request.current) return

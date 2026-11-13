@@ -223,6 +223,13 @@ export function RegionTerrain({ region, textures, normalMap, layer, plan, stops,
   const alpha = useMemo(edgeMask, [])
   const mat = useRef<THREE.MeshStandardMaterial>(null)
   const group = useRef<THREE.Group>(null)
+  // Screen labels, by priority (lower = more important). Overlapping lower-priority labels are hidden.
+  const labels = useRef(new Map<string, { el: HTMLElement; pri: number }>())
+  const declutterAt = useRef(0)
+  const labelRef = (key: string, pri: number) => (el: HTMLElement | null) => {
+    if (el) labels.current.set(key, { el, pri })
+    else labels.current.delete(key)
+  }
   const route = useRef<THREE.Mesh>(null)
   const routeBack = useRef<THREE.Mesh>(null)
   const fade = useRef(0)
@@ -315,13 +322,21 @@ export function RegionTerrain({ region, textures, normalMap, layer, plan, stops,
       draw(route.current, tubes.out, progress.current / s)
       draw(routeBack.current, tubes.back, (progress.current - s) / Math.max(0.01, 1 - s))
     }
+    // ~10 times a second is enough for labels and saves layout work every frame.
+    declutterAt.current -= dt
+    if (declutterAt.current <= 0) {
+      declutterAt.current = 0.1
+      declutter(labels.current)
+    }
   })
 
   const pillar = lift * 6
   return (
     <group ref={group} position={[0, placement.groupY, 0]} scale={REGION_SCALE} visible={false}>
       <mesh geometry={geometry} renderOrder={1}>
-        <meshStandardMaterial ref={mat} map={textures[layer]} normalMap={normalMap} key={normalMap ? 'n' : 'f'} alphaMap={alpha} transparent roughness={1} metalness={0} onBeforeCompile={groundDetail} customProgramCacheKey={() => 'region-ground-detail'} />
+        {/* Self-lit fill: the side of a steep relief facing away from the sun otherwise goes black,
+            hiding the data colours. Strong for the data maps (relief/slope), light for the photo. */}
+        <meshStandardMaterial ref={mat} map={textures[layer]} emissive="#ffffff" emissiveMap={textures[layer]} emissiveIntensity={layer === 'optical' ? 0.12 : 0.4} normalMap={normalMap} key={normalMap ? 'n' : 'f'} alphaMap={alpha} transparent roughness={1} metalness={0} onBeforeCompile={groundDetail} customProgramCacheKey={() => 'region-ground-detail'} />
       </mesh>
       {tracks.map((tr) => (
         <mesh key={tr.key} geometry={tr.geo} renderOrder={2}>
@@ -349,7 +364,7 @@ export function RegionTerrain({ region, textures, normalMap, layer, plan, stops,
                 <meshBasicMaterial color={s.kind === 'habitat' ? '#fb923c' : '#fde68a'} toneMapped={false} />
               </mesh>
               <Html position={[0, touring ? lift * 2 : pillar * 1.15, 0]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
-                <div className={`-translate-y-6 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold shadow-lg ring-1 backdrop-blur ${s.kind === 'habitat' ? 'bg-orange-400/90 text-slate-900 ring-orange-200/40' : 'bg-[#141a2b]/85 text-white ring-white/15'}`}>
+                <div ref={labelRef(`stop-${s.id}`, i)} className={`-translate-y-6 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold shadow-lg ring-1 backdrop-blur ${s.kind === 'habitat' ? 'bg-orange-400/90 text-slate-900 ring-orange-200/40' : 'bg-[#141a2b]/85 text-white ring-white/15'}`}>
                   <span className={`mr-1.5 inline-grid h-5 min-w-5 place-items-center rounded-full px-1 font-mono text-[11px] font-bold ${s.kind === 'habitat' ? 'bg-slate-900 text-orange-300' : 'bg-orange-400 text-slate-900'}`}>{pointCode(s.kind, i)}</span>
                   <span className="mr-1">{s.emoji}</span>
                   {s.name}
@@ -369,6 +384,7 @@ export function RegionTerrain({ region, textures, normalMap, layer, plan, stops,
             </mesh>
             <Html position={[0, pillar * 0.55, 0]} center zIndexRange={[25, 0]}>
               <button
+                ref={labelRef(`ms-${m.id}-${s.sol}`, 1000)}
                 onClick={() => onMilestone(m, s)}
                 className="whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 shadow hover:scale-105"
                 style={{ background: m.color }}
@@ -381,4 +397,27 @@ export function RegionTerrain({ region, textures, normalMap, layer, plan, stops,
         ))}
     </group>
   )
+}
+
+/**
+ * Hides labels that would sit on top of a more important one. Reads every label's on-screen box
+ * first, then keeps them greedily by priority (route stops before mission milestones).
+ */
+function declutter(labels: Map<string, { el: HTMLElement; pri: number }>) {
+  if (labels.size < 2) return
+  const PAD = 4
+  const items = [...labels.values()].map((l) => ({ ...l, r: l.el.getBoundingClientRect() }))
+  items.sort((a, b) => a.pri - b.pri)
+  const kept: DOMRect[] = []
+  for (const it of items) {
+    const { r } = it
+    const hit = r.width > 0 && kept.some((k) => r.left < k.right + PAD && r.right > k.left - PAD && r.top < k.bottom + PAD && r.bottom > k.top - PAD)
+    if (!hit) kept.push(r)
+    const op = hit ? '0' : '1'
+    if (it.el.style.opacity !== op) {
+      it.el.style.opacity = op
+      it.el.style.transition = 'opacity 150ms'
+      it.el.style.pointerEvents = hit ? 'none' : ''
+    }
+  }
 }

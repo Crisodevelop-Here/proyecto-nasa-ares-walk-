@@ -1,6 +1,6 @@
 import { ROVER, SUIT } from '../data/environment'
 import { wrapLon } from '../scene/mars'
-import { bakeGround } from './groundBake'
+import { bakeGround, type GroundInput, type GroundOutput } from './groundBake'
 import { REGION_EX, REGION_GRID, uvToLatLon, type Region } from './regionTerrain'
 
 export type RegionLayer = 'optical' | 'topo' | 'slope'
@@ -355,18 +355,23 @@ export function trekGlobeCanvas(maxWidth = 4096): Promise<HTMLCanvasElement> {
     ctx.filter = 'saturate(1.35) contrast(1.08)'
     const tw = W / m.w
     const th = W / 2 / m.h
-    const jobs: Promise<void>[] = []
-    for (let row = 0; row < m.h; row++)
-      for (let col = 0; col < m.w; col++) {
+    const queue: { row: number; col: number }[] = []
+    for (let row = 0; row < m.h; row++) for (let col = 0; col < m.w; col++) queue.push({ row, col })
+    // Few at a time, so the globe's ~128 tiles don't starve the regional photo requests.
+    const worker = async () => {
+      for (let job = queue.shift(); job; job = queue.shift()) {
+        const { row, col } = job
         const url = template
           .replace('{TileMatrix}', m.id)
           .replace('{TileRow}', String(row))
           .replace('{TileCol}', String(col))
           .replace('{Style}', 'default')
           .replace('{TileMatrixSet}', 'default028mm')
-        jobs.push(loadImage(url).then((img) => ctx.drawImage(img, col * tw, row * th, tw, th)))
+        const img = await loadImage(url)
+        ctx.drawImage(img, col * tw, row * th, tw, th)
       }
-    await Promise.all(jobs)
+    }
+    await Promise.all(Array.from({ length: 4 }, worker))
     ctx.getImageData(0, 0, 1, 1) // throws if the canvas is tainted (no CORS)
     return c
   })()
@@ -381,7 +386,7 @@ const GROUND = 1536
 
 /** The texture the globe is wearing: the Mars Trek mosaic when it loads, else the bundled one. */
 async function globeSource(): Promise<HTMLImageElement | HTMLCanvasElement> {
-  const wait = new Promise<null>((res) => setTimeout(() => res(null), 8000))
+  const wait = new Promise<null>((res) => setTimeout(() => res(null), 15000))
   const trek = await Promise.race([trekGlobeCanvas().catch(() => null), wait])
   if (trek) return trek
   globeImg ??= loadImage('/globe/mars_4k.jpg')
@@ -429,11 +434,50 @@ export interface Optical {
   source: 'trek' | 'fallback'
 }
 
+// ---------- ground bake in a Web Worker (falls back to the main thread) ----------
+
+let bakeWorker: Worker | null | undefined
+let bakeSeq = 0
+const bakeJobs = new Map<number, { resolve: (o: GroundOutput) => void; inp: GroundInput }>()
+
+function failWorker() {
+  bakeWorker?.terminate()
+  bakeWorker = null
+  // Finish whatever was in flight on the main thread.
+  for (const [id, job] of bakeJobs) {
+    bakeJobs.delete(id)
+    job.resolve(bakeGround(job.inp))
+  }
+}
+
+function bakeOffThread(inp: GroundInput): Promise<GroundOutput> {
+  if (bakeWorker === undefined) {
+    try {
+      bakeWorker = new Worker(new URL('./groundBake.worker.ts', import.meta.url), { type: 'module' })
+      bakeWorker.onmessage = (e: MessageEvent<{ id: number; out?: GroundOutput; error?: string }>) => {
+        const job = bakeJobs.get(e.data.id)
+        if (!job) return
+        bakeJobs.delete(e.data.id)
+        job.resolve(e.data.out ?? bakeGround(job.inp))
+      }
+      bakeWorker.onerror = failWorker
+    } catch {
+      bakeWorker = null
+    }
+  }
+  if (!bakeWorker) return Promise.resolve(bakeGround(inp))
+  const id = ++bakeSeq
+  return new Promise((resolve) => {
+    bakeJobs.set(id, { resolve, inp })
+    bakeWorker!.postMessage({ id, inp })
+  })
+}
+
 export async function opticalCanvas(r: Region): Promise<Optical> {
   const S = GROUND
-  const timeout = new Promise<null>((res) => setTimeout(() => res(null), 6000))
+  const timeout = new Promise<null>((res) => setTimeout(() => res(null), 15000))
   const [base, photo] = await Promise.all([globeCrop(r, S), Promise.race([trekCanvas(r).catch(() => null), timeout])])
-  const out = bakeGround({
+  const out = await bakeOffThread({
     size: S,
     sizeM: r.terrain.meta.sizeM,
     heights: r.terrain.heights,

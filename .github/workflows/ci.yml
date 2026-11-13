@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Only the 2 MB Mount Sharp terrain from LFS (the unit tests plan a real route on it).
+      - run: git lfs pull --include="public/terrain/height.bin"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -31,6 +33,7 @@ jobs:
       # No LFS download here (saves the monthly LFS bandwidth): without the 32 px/° tiles the app
       # falls back to the global 4 px/° relief, which is enough to test the interface.
       - uses: actions/checkout@v4
+      - run: git lfs pull --include="public/terrain/height.bin"
       - uses: actions/setup-node@v4
         with:
           node-version: 22

@@ -3,3 +3,5 @@ dist
 data-src
 .DS_Store
 *.log
+test-results
+playwright-report

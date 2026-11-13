@@ -104,7 +104,11 @@ export function planRoute(t: Terrain, habitat: Station, stops: Station[], opts: 
   if (o2Kg > SUIT.o2CapacityKg * 0.85) warnings.push('El oxígeno quedaría por debajo del 15 % de reserva.')
   if (opts.solarEvent) warnings.push('Tormenta solar: la dosis se multiplica. Considera aplazar la EVA.')
   if (maxSlope > profile.cautionSlopeDeg)
-    warnings.push(eva ? `Hay tramos de hasta ${Math.round(maxSlope)}° de pendiente: caminar en pareja y con bastones.` : `Hay tramos de hasta ${Math.round(maxSlope)}° de pendiente: conducir despacio y revisar la ruta con el equipo.`)
+    warnings.push(
+      eva
+        ? `Hay tramos de hasta ${Math.round(maxSlope)}° de pendiente: caminar en pareja y con bastones.`
+        : `Hay tramos de hasta ${Math.round(maxSlope)}° de pendiente: conducir despacio y revisar la ruta con el equipo.`,
+    )
 
   const feasible = legs.every((l) => l.ok) && (eva ? totalHours <= SUIT.maxEvaHours : true) && o2Kg <= SUIT.o2CapacityKg
   return {

@@ -157,7 +157,11 @@ export function SiteTerrain({ terrain: t, plan, layer, active, siteY, touring = 
               </mesh>
               <Html position={[0, touring ? 1.5 : 14, 0]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
                 <div className="whitespace-nowrap rounded-full bg-[#141a2b]/85 px-2.5 py-1 text-xs font-semibold text-white shadow-lg ring-1 ring-white/15 backdrop-blur">
-                  <span className={`mr-1.5 inline-grid h-5 min-w-5 place-items-center rounded-full px-1 font-mono text-[11px] font-bold ${s.kind === 'habitat' ? 'bg-slate-900 text-orange-300' : 'bg-orange-400 text-slate-900'}`}>{pointCode(s.kind, i)}</span>
+                  <span
+                    className={`mr-1.5 inline-grid h-5 min-w-5 place-items-center rounded-full px-1 font-mono text-[11px] font-bold ${s.kind === 'habitat' ? 'bg-slate-900 text-orange-300' : 'bg-orange-400 text-slate-900'}`}
+                  >
+                    {pointCode(s.kind, i)}
+                  </span>
                   <span className="mr-1">{s.emoji}</span>
                   {s.name}
                 </div>

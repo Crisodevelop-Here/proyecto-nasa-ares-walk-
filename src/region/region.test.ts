@@ -48,7 +48,18 @@ describe('regional patch mapping', () => {
 describe('rover route on a regional grid', () => {
   const nav = 64
   const meta: TerrainMeta = { source: 't', site: 't', sizeM: 120_000, grid: nav * 2, zMin: 0, zMax: 1, metersPerPixel: 120_000 / (nav * 2), nw: [0, 0], se: [0, 0] }
-  const st = (id: string, u: number, v: number): Station => ({ id, name: id, kind: id === 'hab' ? 'habitat' : 'science', emoji: '', u, v, goal: '', why: '', tools: [], workMin: 30 })
+  const st = (id: string, u: number, v: number): Station => ({
+    id,
+    name: id,
+    kind: id === 'hab' ? 'habitat' : 'science',
+    emoji: '',
+    u,
+    v,
+    goal: '',
+    why: '',
+    tools: [],
+    workMin: 30,
+  })
 
   it('uses a non-default nav size', () => {
     const t = buildTerrain(meta, new Float32Array(meta.grid * meta.grid), nav)

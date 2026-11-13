@@ -336,7 +336,21 @@ export function RegionTerrain({ region, textures, normalMap, layer, plan, stops,
       <mesh geometry={geometry} renderOrder={1}>
         {/* Self-lit fill: the side of a steep relief facing away from the sun otherwise goes black,
             hiding the data colours. Strong for the data maps (relief/slope), light for the photo. */}
-        <meshStandardMaterial ref={mat} map={textures[layer]} emissive="#ffffff" emissiveMap={textures[layer]} emissiveIntensity={layer === 'optical' ? 0.12 : 0.4} normalMap={normalMap} key={normalMap ? 'n' : 'f'} alphaMap={alpha} transparent roughness={1} metalness={0} onBeforeCompile={groundDetail} customProgramCacheKey={() => 'region-ground-detail'} />
+        <meshStandardMaterial
+          ref={mat}
+          map={textures[layer]}
+          emissive="#ffffff"
+          emissiveMap={textures[layer]}
+          emissiveIntensity={layer === 'optical' ? 0.12 : 0.4}
+          normalMap={normalMap}
+          key={normalMap ? 'n' : 'f'}
+          alphaMap={alpha}
+          transparent
+          roughness={1}
+          metalness={0}
+          onBeforeCompile={groundDetail}
+          customProgramCacheKey={() => 'region-ground-detail'}
+        />
       </mesh>
       {tracks.map((tr) => (
         <mesh key={tr.key} geometry={tr.geo} renderOrder={2}>
@@ -364,8 +378,15 @@ export function RegionTerrain({ region, textures, normalMap, layer, plan, stops,
                 <meshBasicMaterial color={s.kind === 'habitat' ? '#fb923c' : '#fde68a'} toneMapped={false} />
               </mesh>
               <Html position={[0, touring ? lift * 2 : pillar * 1.15, 0]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
-                <div ref={labelRef(`stop-${s.id}`, i)} className={`-translate-y-6 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold shadow-lg ring-1 backdrop-blur ${s.kind === 'habitat' ? 'bg-orange-400/90 text-slate-900 ring-orange-200/40' : 'bg-[#141a2b]/85 text-white ring-white/15'}`}>
-                  <span className={`mr-1.5 inline-grid h-5 min-w-5 place-items-center rounded-full px-1 font-mono text-[11px] font-bold ${s.kind === 'habitat' ? 'bg-slate-900 text-orange-300' : 'bg-orange-400 text-slate-900'}`}>{pointCode(s.kind, i)}</span>
+                <div
+                  ref={labelRef(`stop-${s.id}`, i)}
+                  className={`-translate-y-6 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold shadow-lg ring-1 backdrop-blur ${s.kind === 'habitat' ? 'bg-orange-400/90 text-slate-900 ring-orange-200/40' : 'bg-[#141a2b]/85 text-white ring-white/15'}`}
+                >
+                  <span
+                    className={`mr-1.5 inline-grid h-5 min-w-5 place-items-center rounded-full px-1 font-mono text-[11px] font-bold ${s.kind === 'habitat' ? 'bg-slate-900 text-orange-300' : 'bg-orange-400 text-slate-900'}`}
+                  >
+                    {pointCode(s.kind, i)}
+                  </span>
                   <span className="mr-1">{s.emoji}</span>
                   {s.name}
                 </div>

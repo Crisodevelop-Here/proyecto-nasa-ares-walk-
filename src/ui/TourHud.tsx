@@ -52,7 +52,10 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
     <>
       {/* Arrival card */}
       {arrived && (
-        <div key={arrived.n} className="card-in pointer-events-none absolute left-1/2 top-6 z-40 w-[min(92vw,460px)] -translate-x-1/2 rounded-2xl border border-white/10 bg-[#141a2b]/90 p-4 text-white shadow-2xl backdrop-blur">
+        <div
+          key={arrived.n}
+          className="card-in pointer-events-none absolute left-1/2 top-6 z-40 w-[min(92vw,460px)] -translate-x-1/2 rounded-2xl border border-white/10 bg-[#141a2b]/90 p-4 text-white shadow-2xl backdrop-blur"
+        >
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">
             {arrived.last ? 'Llegaste de vuelta al punto A (base)' : `Llegaste al punto ${arrivalCode(arrived)} de ${arrivals.length - 1}`} · {hm(arrived.t)} de misión
           </p>
@@ -72,25 +75,50 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
 
       <div className="card-in absolute inset-x-2 bottom-2 z-40 rounded-2xl border border-white/10 bg-[#141a2b]/88 p-3 text-white shadow-2xl backdrop-blur sm:inset-x-6 sm:bottom-6 sm:p-4 lg:inset-x-auto lg:left-1/2 lg:w-[880px] lg:-translate-x-1/2">
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={onPlay} className="grid h-10 w-10 place-items-center rounded-full bg-orange-400 text-lg font-bold text-slate-900 transition hover:bg-orange-300" title="Espacio">
+          <button
+            onClick={onPlay}
+            className="grid h-10 w-10 place-items-center rounded-full bg-orange-400 text-lg font-bold text-slate-900 transition hover:bg-orange-300"
+            title="Espacio"
+          >
             {tour.playing ? '❚❚' : done ? '↺' : '▶'}
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">{mode === 'site' ? 'EVA a pie · Monte Sharp' : 'Travesía en rover (tipo Perseverance)'}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">
+              {mode === 'site' ? 'EVA a pie · Monte Sharp' : 'Travesía en rover (tipo Perseverance)'}
+            </p>
             <p className="truncate text-sm text-white/85">
-              {done ? `Recorrido completo A → ${arrivals.filter((a) => !a.last).map(arrivalCode).join(' → ')} → A: ${km(total)} en ${hm(plan.walkHours)} de marcha` : <><b className="font-mono text-orange-300">{prevStop ? arrivalCode(prevStop) : 'A'}</b> {prevStop?.station.name ?? baseName} <span className="text-white/50">→</span> <b className="font-mono text-orange-300">{nextStop ? arrivalCode(nextStop) : 'A'}</b> {nextStop?.station.name ?? baseName}</>}
+              {done ? (
+                `Recorrido completo A → ${arrivals
+                  .filter((a) => !a.last)
+                  .map(arrivalCode)
+                  .join(' → ')} → A: ${km(total)} en ${hm(plan.walkHours)} de marcha`
+              ) : (
+                <>
+                  <b className="font-mono text-orange-300">{prevStop ? arrivalCode(prevStop) : 'A'}</b> {prevStop?.station.name ?? baseName}{' '}
+                  <span className="text-white/50">→</span> <b className="font-mono text-orange-300">{nextStop ? arrivalCode(nextStop) : 'A'}</b>{' '}
+                  {nextStop?.station.name ?? baseName}
+                </>
+              )}
             </p>
           </div>
           <div className="flex rounded-lg bg-white/5 p-0.5 text-xs">
             {TOUR_CAMERAS.map((c) => (
-              <button key={c.id} onClick={() => onCamera(c.id)} className={`rounded-md px-2.5 py-1 font-medium transition ${tour.camera === c.id ? 'bg-white/20 text-white' : 'text-white/60 hover:text-white'}`}>
+              <button
+                key={c.id}
+                onClick={() => onCamera(c.id)}
+                className={`rounded-md px-2.5 py-1 font-medium transition ${tour.camera === c.id ? 'bg-white/20 text-white' : 'text-white/60 hover:text-white'}`}
+              >
                 {c.label}
               </button>
             ))}
           </div>
           <div className="flex rounded-lg bg-white/5 p-0.5 text-xs">
             {[0.5, 1, 2, 4].map((s) => (
-              <button key={s} onClick={() => onSpeed(s)} className={`rounded-md px-2 py-1 font-mono transition ${tour.speed === s ? 'bg-white/20 text-white' : 'text-white/60 hover:text-white'}`}>
+              <button
+                key={s}
+                onClick={() => onSpeed(s)}
+                className={`rounded-md px-2 py-1 font-mono transition ${tour.speed === s ? 'bg-white/20 text-white' : 'text-white/60 hover:text-white'}`}
+              >
                 ×{s}
               </button>
             ))}
@@ -105,7 +133,11 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
           <Stat label="elevación" value={`${Math.round(p.z).toLocaleString('es-ES')} m`} />
           <Stat label="pendiente" value={`${p.slope.toFixed(1)}°`} className={slopeColor} />
           <Stat label="reloj de misión" value={hm(p.t)} />
-          <Stat label={tour.hold > 0 ? `trabajando en ${prevStop ? arrivalCode(prevStop) : 'A'}` : `hasta ${nextStop ? arrivalCode(nextStop) : 'A'}`} value={tour.hold > 0 ? '⛏' : nextStop ? km(Math.max(0, nextStop.d - tour.d)) : '—'} className="hidden sm:block" />
+          <Stat
+            label={tour.hold > 0 ? `trabajando en ${prevStop ? arrivalCode(prevStop) : 'A'}` : `hasta ${nextStop ? arrivalCode(nextStop) : 'A'}`}
+            value={tour.hold > 0 ? '⛏' : nextStop ? km(Math.max(0, nextStop.d - tour.d)) : '—'}
+            className="hidden sm:block"
+          />
         </div>
 
         {/* Elevation profile: click or drag to move along the route */}

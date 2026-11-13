@@ -41,7 +41,6 @@ function shade(r: Region) {
   return out
 }
 
-
 // ---------- relief: an Earth atlas map (hypsometric tints + hillshade + contour lines), Martian palette ----------
 
 /**
@@ -101,7 +100,11 @@ export interface ReliefLegend {
   zMax: number
   interval: number
 }
-export const reliefLegend = (r: Region): ReliefLegend => ({ zMin: r.terrain.meta.zMin, zMax: r.terrain.meta.zMax, interval: contourInterval(r.terrain.meta.zMax - r.terrain.meta.zMin) })
+export const reliefLegend = (r: Region): ReliefLegend => ({
+  zMin: r.terrain.meta.zMin,
+  zMax: r.terrain.meta.zMax,
+  interval: contourInterval(r.terrain.meta.zMax - r.terrain.meta.zMin),
+})
 
 export function topoCanvas(r: Region) {
   const S = OUT
@@ -133,10 +136,10 @@ export function topoCanvas(r: Region) {
       let sh = 0
       for (const [sx, sy, sz, w] of suns) sh += (w * Math.max(0, (nx * sx + ny * sy + sz) / Math.hypot(sx, sy, sz))) / nl
       const [R, G, B] = ramp((Z[i] - zMin) / (zMax - zMin))
-      const shade = 0.5 + 0.9 * sh
-      let r0 = R * shade
-      let g0 = G * shade
-      let b0 = B * shade
+      const lit = 0.5 + 0.9 * sh
+      let r0 = R * lit
+      let g0 = G * lit
+      let b0 = B * lit
       // Contour lines: where the interval band changes between neighbours. Every 5th is bolder.
       const band = Math.floor(Z[i] / interval)
       const right = x + 1 < S ? Math.floor(Z[i + 1] / interval) : band

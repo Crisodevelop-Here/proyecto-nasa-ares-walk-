@@ -16,7 +16,8 @@ export function LayerLegend({ region, layer }: { region: Region; layer: RegionLa
         <>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">Relieve · mapa topográfico</p>
           <p className="mt-1 text-xs text-white/70">
-            Como un mapa físico de la Tierra, con colores de Marte. Cada línea es una <b>curva de nivel</b>: todo lo que toca está a la misma altura. Las líneas juntas indican cuesta empinada y las separadas, terreno llano.
+            Como un mapa físico de la Tierra, con colores de Marte. Cada línea es una <b>curva de nivel</b>: todo lo que toca está a la misma altura. Las líneas juntas indican
+            cuesta empinada y las separadas, terreno llano.
           </p>
           <div className="mt-2.5 h-3 rounded-full" style={{ background: `linear-gradient(90deg, ${RELIEF_RAMP.map(([t, c]) => `${rgb(c)} ${t * 100}%`).join(', ')})` }} />
           <div className="mt-1 flex justify-between font-mono text-[11px] text-white/60">
@@ -31,7 +32,9 @@ export function LayerLegend({ region, layer }: { region: Region; layer: RegionLa
       ) : (
         <>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">Pendiente · ¿por dónde se puede ir?</p>
-          <p className="mt-1 text-xs text-white/70">Mide lo inclinado que está el suelo. Con esto se decide dónde aterrizar, dónde montar la base y por dónde pasa la ruta del rover o la caminata.</p>
+          <p className="mt-1 text-xs text-white/70">
+            Mide lo inclinado que está el suelo. Con esto se decide dónde aterrizar, dónde montar la base y por dónde pasa la ruta del rover o la caminata.
+          </p>
           <ul className="mt-2.5 space-y-1">
             {SLOPE_CLASSES.map((c, i) => (
               <li key={c.label} className="flex items-center gap-2 text-xs">
@@ -43,7 +46,8 @@ export function LayerLegend({ region, layer }: { region: Region; layer: RegionLa
             ))}
           </ul>
           <p className="mt-2 text-[11px] text-white/50">
-            Pendiente máxima aquí: <b className="text-white/80">{slope.maxDeg.toFixed(1)}°</b>. Rayado = el rover no pasa. Con MOLA (~1,8 km por píxel) las cuestas cortas salen suavizadas; a escala EVA se usa HiRISE de 1 m.
+            Pendiente máxima aquí: <b className="text-white/80">{slope.maxDeg.toFixed(1)}°</b>. Rayado = el rover no pasa. Con MOLA (~1,8 km por píxel) las cuestas cortas salen
+            suavizadas; a escala EVA se usa HiRISE de 1 m.
           </p>
         </>
       )}

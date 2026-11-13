@@ -17,10 +17,7 @@ export interface Terrain {
 }
 
 export async function loadTerrain(base = '/terrain'): Promise<Terrain> {
-  const [meta, buf] = await Promise.all([
-    fetch(`${base}/meta.json`).then((r) => r.json() as Promise<TerrainMeta>),
-    fetch(`${base}/height.bin`).then((r) => r.arrayBuffer()),
-  ])
+  const [meta, buf] = await Promise.all([fetch(`${base}/meta.json`).then((r) => r.json() as Promise<TerrainMeta>), fetch(`${base}/height.bin`).then((r) => r.arrayBuffer())])
   const raw = new Uint16Array(buf)
   const span = meta.zMax - meta.zMin
   const heights = new Float32Array(raw.length)
@@ -28,31 +25,30 @@ export async function loadTerrain(base = '/terrain'): Promise<Terrain> {
   return buildTerrain(meta, heights)
 }
 
-export function buildTerrain(meta: TerrainMeta, heights: Float32Array, NAV_ = NAV): Terrain {
-  const NAV = NAV_
+export function buildTerrain(meta: TerrainMeta, heights: Float32Array, navN = NAV): Terrain {
   const g = meta.grid
-  const f = g / NAV
-  const cellM = meta.sizeM / NAV
-  const navZ = new Float32Array(NAV * NAV)
-  for (let y = 0; y < NAV; y++)
-    for (let x = 0; x < NAV; x++) {
+  const f = g / navN
+  const cellM = meta.sizeM / navN
+  const navZ = new Float32Array(navN * navN)
+  for (let y = 0; y < navN; y++)
+    for (let x = 0; x < navN; x++) {
       let s = 0
       for (let j = 0; j < f; j++) for (let i = 0; i < f; i++) s += heights[(y * f + j) * g + x * f + i]
-      navZ[y * NAV + x] = s / (f * f)
+      navZ[y * navN + x] = s / (f * f)
     }
-  const navSlope = new Float32Array(NAV * NAV)
-  const navRough = new Float32Array(NAV * NAV)
-  const at = (x: number, y: number) => navZ[Math.min(NAV - 1, Math.max(0, y)) * NAV + Math.min(NAV - 1, Math.max(0, x))]
-  for (let y = 0; y < NAV; y++)
-    for (let x = 0; x < NAV; x++) {
+  const navSlope = new Float32Array(navN * navN)
+  const navRough = new Float32Array(navN * navN)
+  const at = (x: number, y: number) => navZ[Math.min(navN - 1, Math.max(0, y)) * navN + Math.min(navN - 1, Math.max(0, x))]
+  for (let y = 0; y < navN; y++)
+    for (let x = 0; x < navN; x++) {
       const dzdx = (at(x + 1, y) - at(x - 1, y)) / (2 * cellM)
       const dzdy = (at(x, y + 1) - at(x, y - 1)) / (2 * cellM)
-      navSlope[y * NAV + x] = (Math.atan(Math.hypot(dzdx, dzdy)) * 180) / Math.PI
+      navSlope[y * navN + x] = (Math.atan(Math.hypot(dzdx, dzdy)) * 180) / Math.PI
       // Roughness: deviation from the plane through the 4 neighbours (m).
       const mean = (at(x + 1, y) + at(x - 1, y) + at(x, y + 1) + at(x, y - 1)) / 4
-      navRough[y * NAV + x] = Math.abs(at(x, y) - mean)
+      navRough[y * navN + x] = Math.abs(at(x, y) - mean)
     }
-  return { meta, heights, navZ, navSlope, navRough, cellM, nav: NAV }
+  return { meta, heights, navZ, navSlope, navRough, cellM, nav: navN }
 }
 
 /** Bilinear elevation (m) at normalized coordinates. */

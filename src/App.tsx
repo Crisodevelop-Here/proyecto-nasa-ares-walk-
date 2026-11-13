@@ -91,7 +91,9 @@ export default function App() {
       // Only snap to a mission when the click is right on it (its landing site, a milestone or its
       // track): otherwise the patch is centred exactly where the user clicked.
       const onMission = MISSIONS.filter((m) =>
-        [[m.lat, m.lon] as [number, number], ...m.track, ...m.milestones.map((x) => [x.lat, x.lon] as [number, number])].some(([a, b]) => distanceKm(clickLat, clickLon, a, b) < SNAP_KM),
+        [[m.lat, m.lon] as [number, number], ...m.track, ...m.milestones.map((x) => [x.lat, x.lon] as [number, number])].some(
+          ([a, b]) => distanceKm(clickLat, clickLon, a, b) < SNAP_KM,
+        ),
       )
       const { lat, lon, sizeKm } = frameFor(clickLat, clickLon, onMission)
       setFocus({ lat, lon })
@@ -164,7 +166,15 @@ export default function App() {
     return planRoute(region.terrain, habitat, stops, { profile: ROVER, solarEvent: solarStorm, doseMSvPerDay: doseAtElevation(region.meanZ) })
   }, [region, habitat, stops, solarStorm])
   const sitePlan = useMemo(
-    () => (siteTerrain ? planRoute(siteTerrain, STATION_BY_ID.hab, SITE_STOPS.map((id) => STATION_BY_ID[id]), { solarEvent: solarStorm }) : null),
+    () =>
+      siteTerrain
+        ? planRoute(
+            siteTerrain,
+            STATION_BY_ID.hab,
+            SITE_STOPS.map((id) => STATION_BY_ID[id]),
+            { solarEvent: solarStorm },
+          )
+        : null,
     [siteTerrain, solarStorm],
   )
   const siteY = useMemo(() => (siteTerrain ? sitePlacement(siteTerrain).targetY : 10), [siteTerrain])
@@ -294,9 +304,22 @@ export default function App() {
         onHover={onHover}
       >
         {region && textures && (
-          <RegionTerrain region={region} textures={textures} normalMap={normalMap} layer={layer} plan={plan} stops={habitat ? [habitat, ...stops] : stops} missions={nearMissions} active={view === 'region'} touring={!!tourUI} onMilestone={onMilestone} />
+          <RegionTerrain
+            region={region}
+            textures={textures}
+            normalMap={normalMap}
+            layer={layer}
+            plan={plan}
+            stops={habitat ? [habitat, ...stops] : stops}
+            missions={nearMissions}
+            active={view === 'region'}
+            touring={!!tourUI}
+            onMilestone={onMilestone}
+          />
         )}
-        {view === 'region' && region && plan && <Traveler key={`r${region.lat}${region.lon}`} mode="region" terrain={region.terrain} plan={plan} arrivals={tourArrivals} tour={tour} onTick={tick} />}
+        {view === 'region' && region && plan && (
+          <Traveler key={`r${region.lat}${region.lon}`} mode="region" terrain={region.terrain} plan={plan} arrivals={tourArrivals} tour={tour} onTick={tick} />
+        )}
         {view === 'site' && siteTerrain && sitePlan && <Traveler key="site" mode="site" terrain={siteTerrain} plan={sitePlan} arrivals={tourArrivals} tour={tour} onTick={tick} />}
       </Stage>
 
@@ -346,7 +369,10 @@ export default function App() {
         </div>
       )}
       {view === 'globe' && (
-        <p ref={hoverEl} className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#141a2b]/80 px-4 py-2 font-mono text-xs text-white/80 ring-1 ring-white/10 backdrop-blur">
+        <p
+          ref={hoverEl}
+          className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#141a2b]/80 px-4 py-2 font-mono text-xs text-white/80 ring-1 ring-white/10 backdrop-blur"
+        >
           Haz clic en cualquier punto de Marte para explorarlo
         </p>
       )}

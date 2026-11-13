@@ -252,9 +252,10 @@ export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ vie
   useEffect(() => {
     let live = true
     let tex: THREE.CanvasTexture | null = null
+    const mat = surface.current
     trekGlobeCanvas()
       .then((c) => {
-        const m = surface.current
+        const m = mat
         if (!live || !m) return
         if (low && c.width > 2048) {
           const small = document.createElement('canvas')
@@ -272,7 +273,7 @@ export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ vie
       .catch(() => {})
     return () => {
       live = false
-      if (tex && surface.current?.map === tex) surface.current.map = map
+      if (tex && mat?.map === tex) mat.map = map
       tex?.dispose()
     }
   }, [map, low])
@@ -300,7 +301,10 @@ export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ vie
         .replace('#include <common>', '#include <common>\nvarying vec3 vObj;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObj = position;')
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', `#include <common>\nuniform float uSiteMix;\nuniform vec3 uSiteColor;\nuniform float uDetail;\nuniform float uTour;\nuniform mat3 uNM;\nvarying vec3 vObj;\n${DETAIL_GLSL}`)
+        .replace(
+          '#include <common>',
+          `#include <common>\nuniform float uSiteMix;\nuniform vec3 uSiteColor;\nuniform float uDetail;\nuniform float uTour;\nuniform mat3 uNM;\nvarying vec3 vObj;\n${DETAIL_GLSL}`,
+        )
         .replace(
           '#include <map_fragment>',
           `#include <map_fragment>

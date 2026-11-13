@@ -24,7 +24,16 @@ interface MoonSpec {
 }
 
 const MOONS: MoonSpec[] = [
-  { id: 'phobos', name: 'Fobos', axes: [13.5, 11, 9], orbitKm: 9376, periodH: 7.65, color: '#7b6a5c', bigCrater: { lat: 0, lon: 0.5, r: 0.42 }, note: '27 km (dibujada ×14) · a 6.000 km de la superficie' },
+  {
+    id: 'phobos',
+    name: 'Fobos',
+    axes: [13.5, 11, 9],
+    orbitKm: 9376,
+    periodH: 7.65,
+    color: '#7b6a5c',
+    bigCrater: { lat: 0, lon: 0.5, r: 0.42 },
+    note: '27 km (dibujada ×14) · a 6.000 km de la superficie',
+  },
   { id: 'deimos', name: 'Deimos', axes: [7.5, 6, 5], orbitKm: 23460, periodH: 30.3, color: '#b09a84', note: '15 km (dibujada ×14) · 30 h por vuelta' },
 ]
 const SIZE_BOOST = 14

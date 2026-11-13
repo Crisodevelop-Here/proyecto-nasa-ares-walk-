@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "oxlint src",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "check": "tsc -b && oxlint src && prettier --check \"src/**/*.{ts,tsx,css}\" && vitest run"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
@@ -23,10 +27,13 @@
     "@types/react-dom": "^19.3.0",
     "@types/three": "^0.187.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "oxlint": "^1.93.0",
     "playwright-core": "^1.64.1",
+    "prettier": "^3.10.1",
     "tailwindcss": "^4.3.3",
     "typescript": "~7.0.2",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
-  }
+  },
+  "license": "MIT"
 }

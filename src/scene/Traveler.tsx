@@ -25,8 +25,7 @@ interface Rig {
 }
 
 function rigFor(mode: 'region' | 'site', sizeM: number): Rig {
-  if (mode === 'site')
-    return { size: 5, chase: { back: 26, up: 11 }, drone: { back: 70, up: 85 }, eye: 2.4, ahead: 32 }
+  if (mode === 'site') return { size: 5, chase: { back: 26, up: 11 }, drone: { back: 70, up: 85 }, eye: 2.4, ahead: 32 }
   const s = Math.min(300, Math.max(40, sizeM * 0.004))
   return { size: s, chase: { back: sizeM * 0.016, up: sizeM * 0.0065 }, drone: { back: sizeM * 0.07, up: sizeM * 0.075 }, eye: s * 0.9, ahead: sizeM * 0.03 }
 }
@@ -60,7 +59,12 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
   const roll = useRef(0)
   const steer = useRef(0)
   const dustAcc = useRef(0)
-  const dust = useRef<{ p: Float32Array; v: Float32Array; life: Float32Array; next: number } | null>({ p: new Float32Array(DUST * 3), v: new Float32Array(DUST * 3), life: new Float32Array(DUST), next: 0 })
+  const dust = useRef<{ p: Float32Array; v: Float32Array; life: Float32Array; next: number } | null>({
+    p: new Float32Array(DUST * 3),
+    v: new Float32Array(DUST * 3),
+    life: new Float32Array(DUST),
+    next: 0,
+  })
   const dustGeo = useMemo(() => {
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(DUST * 3), 3))
@@ -81,7 +85,10 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
   const groupY = useMemo(() => (mode === 'region' ? regionPlacement(t).groupY : sitePlacement(t).groupY), [mode, t])
   const scale = mode === 'region' ? REGION_SCALE : SITE_SCALE
   const local = useMemo(
-    () => (mode === 'region' ? (p: UV, lift: number, out: THREE.Vector3) => regionLocal(t, p, lift, out) : (p: UV, lift: number, out: THREE.Vector3) => toWorld(t, p, SITE_EX, lift, out)),
+    () =>
+      mode === 'region'
+        ? (p: UV, lift: number, out: THREE.Vector3) => regionLocal(t, p, lift, out)
+        : (p: UV, lift: number, out: THREE.Vector3) => toWorld(t, p, SITE_EX, lift, out),
     [mode, t],
   )
 
@@ -210,7 +217,7 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
       // Soft contact shadow under the vehicle / boots.
       ring.current.visible = s.camera !== 'pov'
       ring.current.position.set(pos.x, bodyY + 0.2 * K, pos.z)
-      ring.current.rotation.set(-Math.PI / 2 - pitch.current * 0, 0, -yaw.current)
+      ring.current.rotation.set(-Math.PI / 2, 0, -yaw.current)
       ring.current.scale.set(rig.size * K * (mode === 'site' ? 0.5 : 0.95), rig.size * K * (mode === 'site' ? 0.5 : 1.25), 1)
     }
 
@@ -303,19 +310,19 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
 
   return (
     <>
-    {/* Sky dome follows the camera (world space, outside the scaled terrain group). */}
-    <mesh ref={skyDome} material={skyMat} renderOrder={-3} frustumCulled={false} visible={false}>
-      <sphereGeometry args={[60, 48, 24]} />
-    </mesh>
-    <group ref={group} position={[0, groupY, 0]} scale={scale} visible={false}>
-      <Rocks plan={plan} local={local} sizeM={sizeM} mode={mode} />
-      <mesh ref={ring} renderOrder={4}>
-        <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial map={shadowTex} transparent depthWrite={false} toneMapped={false} />
+      {/* Sky dome follows the camera (world space, outside the scaled terrain group). */}
+      <mesh ref={skyDome} material={skyMat} renderOrder={-3} frustumCulled={false} visible={false}>
+        <sphereGeometry args={[60, 48, 24]} />
       </mesh>
-      <points geometry={dustGeo} material={dustMat} frustumCulled={false} renderOrder={5} />
-      <group ref={avatar}>{mode === 'region' ? <RoverModel wheels={wheels} /> : <AstronautModel legL={legL} legR={legR} armL={armL} armR={armR} />}</group>
-    </group>
+      <group ref={group} position={[0, groupY, 0]} scale={scale} visible={false}>
+        <Rocks plan={plan} local={local} sizeM={sizeM} mode={mode} />
+        <mesh ref={ring} renderOrder={4}>
+          <planeGeometry args={[1, 1]} />
+          <meshBasicMaterial map={shadowTex} transparent depthWrite={false} toneMapped={false} />
+        </mesh>
+        <points geometry={dustGeo} material={dustMat} frustumCulled={false} renderOrder={5} />
+        <group ref={avatar}>{mode === 'region' ? <RoverModel wheels={wheels} /> : <AstronautModel legL={legL} legR={legR} armL={armL} armR={armR} />}</group>
+      </group>
     </>
   )
 }
@@ -498,9 +505,7 @@ function RoverModel({ wheels }: { wheels: RefObject<THREE.Group | null> }) {
       {/* differential bar across the deck */}
       <Strut a={[-0.75, 1.3, -0.05]} b={[0.75, 1.3, -0.05]} r={0.03} />
 
-      <group ref={wheels}>
-        {[zF, zM, zR].flatMap((z) => [-W, W].map((x) => <Wheel key={`${x}${z}`} x={x} z={z} />))}
-      </group>
+      <group ref={wheels}>{[zF, zM, zR].flatMap((z) => [-W, W].map((x) => <Wheel key={`${x}${z}`} x={x} z={z} />))}</group>
     </group>
   )
 }
@@ -617,7 +622,17 @@ function rand(seed: number) {
  * Boulders scattered around the route (visual only): basalt-dark, dust on top, power-law sizes,
  * denser near the path so the ground reads at driving / walking height.
  */
-export function Rocks({ plan, local, sizeM, mode }: { plan: RoutePlan; local: (p: UV, lift: number, out: THREE.Vector3) => THREE.Vector3; sizeM: number; mode: 'region' | 'site' }) {
+export function Rocks({
+  plan,
+  local,
+  sizeM,
+  mode,
+}: {
+  plan: RoutePlan
+  local: (p: UV, lift: number, out: THREE.Vector3) => THREE.Vector3
+  sizeM: number
+  mode: 'region' | 'site'
+}) {
   const mesh = useMemo(() => {
     const geo = new THREE.IcosahedronGeometry(1, 1)
     const r = rand(7)
@@ -626,7 +641,7 @@ export function Rocks({ plan, local, sizeM, mode }: { plan: RoutePlan; local: (p
     for (let i = 0; i < pos.count; i++) {
       v.fromBufferAttribute(pos, i)
       // Same jitter for shared vertices (keyed by position) keeps the rock closed.
-      const j = 0.6 + 0.8 * Math.abs(Math.sin(v.x * 12.9898 + v.y * 78.233 + v.z * 37.719) * 43758.5453 % 1)
+      const j = 0.6 + 0.8 * Math.abs((Math.sin(v.x * 12.9898 + v.y * 78.233 + v.z * 37.719) * 43758.5453) % 1)
       v.multiplyScalar(j)
       v.y *= 0.55
       if (v.y < -0.15) v.y = -0.15 // flat underside, sits on the ground like a real boulder
@@ -653,7 +668,7 @@ export function Rocks({ plan, local, sizeM, mode }: { plan: RoutePlan; local: (p
     // A thinned copy of the route, to keep boulders off the track wherever they are thrown.
     const track = pts.filter((_, i) => i % Math.max(1, Math.floor(pts.length / 400)) === 0)
     const clear = mode === 'region' ? 380 * kz : 3.5 // m kept free each side of the path
-    const onTrack = (uv: UV) => track.some((p) => Math.hypot((p.u - uv.u) * sizeM, (p.v - uv.v) * sizeM) < clear)
+    const onTrack = (uv: UV) => track.some((tp) => Math.hypot((tp.u - uv.u) * sizeM, (tp.v - uv.v) * sizeM) < clear)
     for (let i = 0; i < N; i++) {
       let uv: UV
       if (i % 5 < 3) {

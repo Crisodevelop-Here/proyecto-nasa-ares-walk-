@@ -69,3 +69,7 @@ python3 -I scripts/mola_tiles.py data-src/megt90n000fb.img public/mola32
 - `src/region/regionLayers.ts`: capas óptica (Mars Trek o respaldo), relieve y pendiente.
 - `src/route/`: A* y planificador, con perfiles para traje y rover.
 - `src/ui/SidePanel.tsx`: pestañas Misiones, Objetivos, Ruta y Seguridad.
+
+## Licencia
+
+Código bajo licencia [MIT](LICENSE) © 2026 Space Legends. Los datos de NASA son de dominio público; la textura de respaldo de Solar System Scope es CC BY 4.0.

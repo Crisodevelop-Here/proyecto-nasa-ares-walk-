@@ -38,11 +38,23 @@ const MISSION_OBJECTIVE: Record<string, string> = {
 }
 
 function terrainObjective(lat: number, r: Region) {
-  if (Math.abs(lat) > 55) return { title: 'Hielo de agua cerca de la superficie', text: 'A esta latitud el hielo está a pocos centímetros. Objetivo: medir su pureza y profundidad como recurso para la tripulación.' }
+  if (Math.abs(lat) > 55)
+    return {
+      title: 'Hielo de agua cerca de la superficie',
+      text: 'A esta latitud el hielo está a pocos centímetros. Objetivo: medir su pureza y profundidad como recurso para la tripulación.',
+    }
   if (r.centerZ > 6000) return { title: 'Volcanismo', text: 'Terreno alto y volcánico. Objetivo: muestrear coladas de lava para fecharlas y entender cuándo fue activo Marte.' }
-  if (r.centerZ < -3500) return { title: 'Cuenca baja: antiguos lagos', text: 'Las zonas bajas acumulan sedimentos de agua. Objetivo: buscar arcillas y sales que conserven química de un antiguo lago.' }
-  if (r.blockedFrac > 0.12) return { title: 'Capas expuestas en escarpes', text: 'Las paredes empinadas dejan ver capas de roca de distintas épocas. Objetivo: leerlas en orden, de abajo arriba.' }
-  return { title: 'Corteza antigua con cráteres', text: 'Tierras altas de más de 3.500 millones de años. Objetivo: muestrear eyecta de cráteres que traen roca profunda a la superficie.' }
+  if (r.centerZ < -3500)
+    return {
+      title: 'Cuenca baja: antiguos lagos',
+      text: 'Las zonas bajas acumulan sedimentos de agua. Objetivo: buscar arcillas y sales que conserven química de un antiguo lago.',
+    }
+  if (r.blockedFrac > 0.12)
+    return { title: 'Capas expuestas en escarpes', text: 'Las paredes empinadas dejan ver capas de roca de distintas épocas. Objetivo: leerlas en orden, de abajo arriba.' }
+  return {
+    title: 'Corteza antigua con cráteres',
+    text: 'Tierras altas de más de 3.500 millones de años. Objetivo: muestrear eyecta de cráteres que traen roca profunda a la superficie.',
+  }
 }
 
 interface Props {
@@ -71,7 +83,9 @@ export function SidePanel(p: Props) {
       <header className="border-b border-white/10 px-5 pb-3 pt-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-300">{p.view === 'site' ? 'Escala EVA · HiRISE 1 m' : `Vista regional · ${Math.round(p.region?.sizeKm ?? 120)} × ${Math.round(p.region?.sizeKm ?? 120)} km`}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-300">
+              {p.view === 'site' ? 'Escala EVA · HiRISE 1 m' : `Vista regional · ${Math.round(p.region?.sizeKm ?? 120)} × ${Math.round(p.region?.sizeKm ?? 120)} km`}
+            </p>
             <h2 className="mt-1 text-2xl font-bold leading-tight tracking-tight">{p.view === 'site' ? 'Monte Sharp' : name.name}</h2>
             <p className="mt-0.5 font-mono text-xs text-white/55">
               {formatLatLon(p.focus.lat, p.focus.lon)}
@@ -116,7 +130,9 @@ function MissionsTab({ focus, missions, onMilestone }: Props) {
     const nearest = MISSIONS.map((m) => ({ m, d: distanceKm(focus.lat, focus.lon, m.lat, m.lon) })).sort((a, b) => a.d - b.d)[0]
     return (
       <div className="space-y-3">
-        <p className="text-white/80">Ninguna misión de superficie ha pisado esta zona. Todo lo que sabemos de ella viene de órbita: relieve láser de MOLA (Mars Global Surveyor) e imágenes Viking.</p>
+        <p className="text-white/80">
+          Ninguna misión de superficie ha pisado esta zona. Todo lo que sabemos de ella viene de órbita: relieve láser de MOLA (Mars Global Surveyor) e imágenes Viking.
+        </p>
         <p className="text-white/60">
           La misión más cercana es <b className="text-white">{nearest.m.name}</b>, a {fmt(nearest.d, 0)} km ({nearest.m.site}).
         </p>
@@ -170,9 +186,19 @@ function MissionsTab({ focus, missions, onMilestone }: Props) {
 
 function ObjectivesTab({ view, focus, region, optical, missions }: Props) {
   const curated = missions.find((m) => MISSION_OBJECTIVE[m.id] && distanceKm(focus.lat, focus.lon, m.lat, m.lon) < 150)
-  const obj = view === 'site' ? { title: 'Formaciones boxwork del Monte Sharp', text: MISSION_OBJECTIVE.curiosity } : curated ? { title: `Continuar el trabajo de ${curated.name}`, text: MISSION_OBJECTIVE[curated.id] } : region ? terrainObjective(focus.lat, region) : null
+  const obj =
+    view === 'site'
+      ? { title: 'Formaciones boxwork del Monte Sharp', text: MISSION_OBJECTIVE.curiosity }
+      : curated
+        ? { title: `Continuar el trabajo de ${curated.name}`, text: MISSION_OBJECTIVE[curated.id] }
+        : region
+          ? terrainObjective(focus.lat, region)
+          : null
   const layers = [
-    { type: 'Óptico', src: optical?.source === 'trek' ? 'Mosaico Viking MDIM 2.1 (NASA Mars Trek)' : 'Color de la textura global (como el globo) + detalle de superficie procedural' },
+    {
+      type: 'Óptico',
+      src: optical?.source === 'trek' ? 'Mosaico Viking MDIM 2.1 (NASA Mars Trek)' : 'Color de la textura global (como el globo) + detalle de superficie procedural',
+    },
     { type: 'Topográfico', src: region?.source === 'mola32' ? 'MOLA MEGDR, 32 px/° (~1,8 km/px), MGS' : 'MOLA MEGDR 4 px/°, MGS' },
     { type: 'Pendiente / obstáculos', src: 'Derivado del relieve MOLA' },
     { type: 'Radiación', src: 'Modelo anclado a RAD (Curiosity), según la columna de atmósfera' },
@@ -207,8 +233,12 @@ function ObjectivesTab({ view, focus, region, optical, missions }: Props) {
         <ul className="mt-2 list-disc space-y-1 pl-5 text-white/80">
           <li>Dos astronautas en pareja: uno muestrea y el otro documenta y vigila.</li>
           <li>Un rover presurizado los lleva entre paradas; solo salen en traje para trabajar.</li>
-          <li>Cada salida en traje dura como máximo {SUIT.maxEvaHours} h y lleva {fmt(SUIT.o2CapacityKg, 1)} kg de O₂.</li>
-          <li>Las rutas evitan pendientes de más de {ROVER.maxSlopeDeg}° en rover y {SUIT.maxSlopeDeg}° a pie.</li>
+          <li>
+            Cada salida en traje dura como máximo {SUIT.maxEvaHours} h y lleva {fmt(SUIT.o2CapacityKg, 1)} kg de O₂.
+          </li>
+          <li>
+            Las rutas evitan pendientes de más de {ROVER.maxSlopeDeg}° en rover y {SUIT.maxSlopeDeg}° a pie.
+          </li>
         </ul>
       </section>
     </div>
@@ -229,7 +259,10 @@ function RouteTab({ view, plan, stops, sitePlan, siteAvailable, onEnterSite }: P
     if (!sitePlan) return <p className="text-white/60">Calculando la ruta a pie…</p>
     return (
       <div className="space-y-4">
-        <p className="text-white/80">Ruta a pie más segura (A*) desde el <b>punto A</b> (hábitat) por los puntos <b>B1, B2 y B3</b> y de vuelta a A, sobre el relieve HiRISE de 1 m. Esquiva las pendientes de más de {SUIT.maxSlopeDeg}°.</p>
+        <p className="text-white/80">
+          Ruta a pie más segura (A*) desde el <b>punto A</b> (hábitat) por los puntos <b>B1, B2 y B3</b> y de vuelta a A, sobre el relieve HiRISE de 1 m. Esquiva las pendientes de
+          más de {SUIT.maxSlopeDeg}°.
+        </p>
         <p className="rounded-xl bg-white/5 p-3 text-center font-mono text-sm text-sky-200">A → B1 → B2 → B3 → A</p>
         <div className="grid grid-cols-2 gap-2">
           <Stat value={km(sitePlan.distanceM)} label="a pie" />
@@ -245,7 +278,8 @@ function RouteTab({ view, plan, stops, sitePlan, siteAvailable, onEnterSite }: P
   return (
     <div className="space-y-4">
       <p className="text-white/80">
-        Travesía en rover presurizado (A* sobre el relieve MOLA): sale del <b>punto A</b> (la base), pasa por los puntos <b>B1 a B{stops.length}</b> y vuelve a A. Evita las pendientes de más de {ROVER.maxSlopeDeg}°.
+        Travesía en rover presurizado (A* sobre el relieve MOLA): sale del <b>punto A</b> (la base), pasa por los puntos <b>B1 a B{stops.length}</b> y vuelve a A. Evita las
+        pendientes de más de {ROVER.maxSlopeDeg}°.
       </p>
       <p className="rounded-xl bg-white/5 p-3 text-center font-mono text-sm text-orange-200">A → {stops.map((_, i) => `B${i + 1}`).join(' → ')} → A</p>
       <div className="grid grid-cols-3 gap-2">
@@ -269,7 +303,9 @@ function RouteTab({ view, plan, stops, sitePlan, siteAvailable, onEnterSite }: P
         ))}
       </ol>
       {plan.distanceM / 1000 > ROVER.rangeKm && (
-        <p className="rounded-lg bg-amber-400/10 p-2.5 text-amber-200">La travesía supera la autonomía del rover ({ROVER.rangeKm} km): hace falta una parada de recarga o dividirla en dos soles.</p>
+        <p className="rounded-lg bg-amber-400/10 p-2.5 text-amber-200">
+          La travesía supera la autonomía del rover ({ROVER.rangeKm} km): hace falta una parada de recarga o dividirla en dos soles.
+        </p>
       )}
       <Warnings plan={plan} />
       {siteAvailable && (

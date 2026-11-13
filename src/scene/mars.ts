@@ -13,7 +13,7 @@ export const MOLA_LO = -6957
 export const MOLA_HI = 14649.6
 /** Vertical exaggeration of the global relief so Tharsis and Valles Marineris read on screen. */
 export const GLOBE_EXAGGERATION = 8
-export const DISPLACEMENT_SCALE = ((MOLA_HI - MOLA_LO) * UNITS_PER_M) * GLOBE_EXAGGERATION
+export const DISPLACEMENT_SCALE = (MOLA_HI - MOLA_LO) * UNITS_PER_M * GLOBE_EXAGGERATION
 export const DISPLACEMENT_BIAS = -((0 - MOLA_LO) / (MOLA_HI - MOLA_LO)) * DISPLACEMENT_SCALE
 
 /** HiRISE crop centre (from public/terrain/meta.json: nw −4.81868, 137.27734 · se −4.85364, 137.3123). */

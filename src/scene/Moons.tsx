@@ -4,6 +4,7 @@ import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { View } from './MarsGlobe'
 import { MARS_RADIUS_M, R } from './mars'
+import { tr } from '../i18n'
 
 /**
  * Phobos and Deimos, Mars' two moons. Real orbit radii and shapes (tri-axial sizes in km), orbits
@@ -134,8 +135,8 @@ export function Moons({ view }: { view: View }) {
             </mesh>
             <Html position={[0, scale * SIZE_BOOST * 34, 0]} center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
               <div ref={(el) => void (labels.current[i] = el)} className="whitespace-nowrap text-center transition-opacity">
-                <p className="text-xs font-semibold text-white/85 drop-shadow">{m.name}</p>
-                <p className="text-[10px] text-white/45">{m.note}</p>
+                <p className="text-xs font-semibold text-white/85 drop-shadow">{tr(m.name)}</p>
+                <p className="text-[10px] text-white/45">{tr(m.note)}</p>
               </div>
             </Html>
           </group>

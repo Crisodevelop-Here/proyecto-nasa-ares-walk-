@@ -1,4 +1,5 @@
 import { ROVER } from '../data/environment'
+import { t, tr } from '../i18n'
 import type { Milestone, Mission } from '../data/missions'
 import { MOLA_HI, MOLA_LO, wrapLon } from '../scene/mars'
 import { buildTerrain, uvToCell, type Terrain } from '../terrain/terrain'
@@ -229,15 +230,17 @@ export function habitatFor(r: Region, missions: Mission[] = []): Station {
   const p = flattestNear(r.terrain, landing?.uv ?? { u: 0.5, v: 0.5 }, landing ? 0.02 : 0.06)
   return {
     id: 'hab',
-    name: 'Base / rover presurizado',
+    name: tr('Base / rover presurizado'),
     kind: 'habitat',
     emoji: '🏠',
     ...p,
-    goal: 'Punto de salida y regreso de la travesía.',
+    goal: tr('Punto de salida y regreso de la travesía.'),
     why: landing
-      ? `Junto al sitio de aterrizaje de ${landing.m.name.split(' (')[0]}: terreno llano ya comprobado por una nave.`
-      : 'La zona más llana cerca del punto elegido: el rover y la nave pueden estacionar.',
-    tools: ['Rover presurizado', 'Recarga de O₂ y baterías'],
+      ? t('Junto al sitio de aterrizaje de {m}: terreno llano ya comprobado por una nave.', 'Next to the {m} landing site: flat ground already proven by a spacecraft.', {
+          m: landing.m.name.split(' (')[0],
+        })
+      : t('La zona más llana cerca del punto elegido: el rover y la nave pueden estacionar.', 'The flattest ground near the chosen spot: the rover and the lander can park here.'),
+    tools: [tr('Rover presurizado'), tr('Recarga de O₂ y baterías')],
     workMin: 0,
   }
 }
@@ -276,13 +279,16 @@ export function missionStops(r: Region, missions: Mission[], from: UV = { u: 0.5
   return orderStops(
     picks.map(({ m, s, uv }) => ({
       id: `${m.id}-${s.sol}`,
-      name: s.title,
+      name: tr(s.title),
       kind: 'science' as const,
       emoji: '📍',
       ...flattestNear(r.terrain, uv, 0.015),
-      goal: `Volver a donde ${m.name.split(' ')[0]} trabajó (sol ${s.sol}) y ampliar su estudio con ojos humanos.`,
-      why: s.finding ?? s.what,
-      tools: ['Taladro de núcleos', 'Espectrómetro de mano', 'Cámara estéreo'],
+      goal: t('Volver a donde {m} trabajó (sol {sol}) y ampliar su estudio con ojos humanos.', 'Return to where {m} worked (sol {sol}) and extend its study with human eyes.', {
+        m: m.name.split(' ')[0],
+        sol: s.sol,
+      }),
+      why: tr(s.finding ?? s.what),
+      tools: [tr('Taladro de núcleos'), tr('Espectrómetro de mano'), tr('Cámara estéreo')],
       workMin: 45,
     })),
     from,
@@ -291,28 +297,28 @@ export function missionStops(r: Region, missions: Mission[], from: UV = { u: 0.5
 
 /** Stops picked from the terrain: the cells with the most relief contrast that a rover can reach. */
 export function terrainStops(r: Region, max = 3): Station[] {
-  const t = r.terrain
-  const n = t.nav
+  const ter = r.terrain
+  const n = ter.nav
   const rad = 4
   const cands: { x: number; y: number; score: number; dz: number }[] = []
   for (let y = rad; y < n - rad; y += 2)
     for (let x = rad; x < n - rad; x += 2) {
       const d = Math.hypot((x + 0.5) / n - 0.5, (y + 0.5) / n - 0.5)
       if (d < 0.1 || d > 0.4) continue
-      if (t.navSlope[y * n + x] > ROVER.maxSlopeDeg * 0.7) continue
+      if (ter.navSlope[y * n + x] > ROVER.maxSlopeDeg * 0.7) continue
       let s = 0
       let s2 = 0
       let k = 0
       for (let j = -rad; j <= rad; j++)
         for (let i = -rad; i <= rad; i++) {
-          const z = t.navZ[(y + j) * n + x + i]
+          const z = ter.navZ[(y + j) * n + x + i]
           s += z
           s2 += z * z
           k++
         }
       const mean = s / k
       const std = Math.sqrt(Math.max(0, s2 / k - mean * mean))
-      cands.push({ x, y, score: std, dz: t.navZ[y * n + x] - mean })
+      cands.push({ x, y, score: std, dz: ter.navZ[y * n + x] - mean })
     }
   cands.sort((a, b) => b.score - a.score)
   const picks: typeof cands = []
@@ -326,18 +332,22 @@ export function terrainStops(r: Region, max = 3): Station[] {
       const low = c.dz < -c.score * 0.3
       return {
         id: `stop${i}`,
-        name: `${high ? 'Escarpe con capas' : low ? 'Fondo de depresión' : 'Ladera de contraste'} ${String.fromCharCode(65 + i)}`,
+        name: `${high ? t('Escarpe con capas', 'Layered scarp') : low ? t('Fondo de depresión', 'Depression floor') : t('Ladera de contraste', 'Contrast slope')} ${String.fromCharCode(65 + i)}`,
         kind: 'science' as const,
         emoji: high ? '🏔️' : low ? '🪨' : '🧭',
         u: (c.x + 0.5) / n,
         v: (c.y + 0.5) / n,
         goal: high
-          ? 'Fotografiar y muestrear las capas expuestas en el escarpe.'
+          ? t('Fotografiar y muestrear las capas expuestas en el escarpe.', 'Photograph and sample the layers exposed in the scarp.')
           : low
-            ? 'Buscar sedimentos finos depositados por agua o viento.'
-            : 'Medir el cambio de roca a lo largo de la ladera.',
-        why: `El relieve local varía ±${Math.round(c.score)} m: aquí afloran rocas de distintas épocas, algo que un humano interpreta en minutos.`,
-        tools: ['Martillo de roca', 'Espectrómetro de mano', 'Cámara estéreo'],
+            ? t('Buscar sedimentos finos depositados por agua o viento.', 'Look for fine sediments laid down by water or wind.')
+            : t('Medir el cambio de roca a lo largo de la ladera.', 'Measure how the rock changes along the slope.'),
+        why: t(
+          'El relieve local varía ±{dz} m: aquí afloran rocas de distintas épocas, algo que un humano interpreta en minutos.',
+          'Local relief varies by ±{dz} m: rocks of different ages crop out here, something a human reads in minutes.',
+          { dz: Math.round(c.score) },
+        ),
+        tools: [tr('Martillo de roca'), tr('Espectrómetro de mano'), tr('Cámara estéreo')],
         workMin: 40,
       }
     }),

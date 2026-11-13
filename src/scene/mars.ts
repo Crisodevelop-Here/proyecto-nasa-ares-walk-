@@ -1,3 +1,4 @@
+import { locale, t } from '../i18n'
 import * as THREE from 'three'
 
 /** Globe radius in scene units. Mars mean radius is 3389.5 km, so 1 unit ≈ 339 km. */
@@ -71,8 +72,8 @@ export function latLonOf(v: THREE.Vector3) {
 export const wrapLon = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180
 
 export function formatLatLon(lat: number, lon: number, d = 2) {
-  const f = (x: number) => Math.abs(x).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d })
-  return `${f(lat)}° ${lat < 0 ? 'S' : 'N'}, ${f(lon)}° ${lon < 0 ? 'O' : 'E'}`
+  const f = (x: number) => Math.abs(x).toLocaleString(locale(), { minimumFractionDigits: d, maximumFractionDigits: d })
+  return `${f(lat)}° ${lat < 0 ? 'S' : 'N'}, ${f(lon)}° ${lon < 0 ? t('O', 'W') : 'E'}`
 }
 
 /** Unit vector pointing north along the surface at (lat, lon). */

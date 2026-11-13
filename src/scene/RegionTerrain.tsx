@@ -12,6 +12,7 @@ import { K, toWorld } from './geo'
 import { DETAIL_GLSL } from './MarsGlobe'
 import { groundUniforms } from './groundUniforms'
 import { MARS_RADIUS_M, R, smoothstep, UNITS_PER_M } from './mars'
+import { tr } from '../i18n'
 
 /** Region group scale: geo units (K per metre) → globe scene units. */
 export const REGION_SCALE = UNITS_PER_M / K
@@ -388,7 +389,7 @@ export function RegionTerrain({ region, textures, normalMap, layer, plan, stops,
                     {pointCode(s.kind, i)}
                   </span>
                   <span className="mr-1">{s.emoji}</span>
-                  {s.name}
+                  {tr(s.name)}
                 </div>
               </Html>
             </group>
@@ -409,7 +410,7 @@ export function RegionTerrain({ region, textures, normalMap, layer, plan, stops,
                 onClick={() => onMilestone(m, s)}
                 className="whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 shadow hover:scale-105"
                 style={{ background: m.color }}
-                title={`${s.title}: ${s.what}`}
+                title={`${tr(s.title)}: ${tr(s.what)}`}
               >
                 {m.kind === 'lander' ? m.name : `Sol ${s.sol}`}
               </button>

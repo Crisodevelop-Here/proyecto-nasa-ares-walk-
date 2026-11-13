@@ -8,6 +8,7 @@ import type { Terrain } from '../terrain/terrain'
 import type { RoutePlan } from '../types'
 import { K, toWorld } from './geo'
 import { R, smoothstep, UNITS_PER_M } from './mars'
+import { tr } from '../i18n'
 
 export type SiteLayer = 'ortho' | 'color' | 'slope'
 export const LAYERS: { id: SiteLayer; label: string }[] = [
@@ -163,7 +164,7 @@ export function SiteTerrain({ terrain: t, plan, layer, active, siteY, touring = 
                     {pointCode(s.kind, i)}
                   </span>
                   <span className="mr-1">{s.emoji}</span>
-                  {s.name}
+                  {tr(s.name)}
                 </div>
               </Html>
             </group>

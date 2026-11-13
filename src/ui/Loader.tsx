@@ -1,5 +1,6 @@
 import { useProgress } from '@react-three/drei'
 import { useEffect, useState } from 'react'
+import { t } from '../i18n'
 
 /** Full-screen loading curtain while the globe textures download; fades out when done. */
 export function Loader() {
@@ -16,7 +17,7 @@ export function Loader() {
     <div className={`absolute inset-0 z-50 grid place-items-center bg-[#03040a] transition-opacity duration-700 ${!active && progress === 100 ? 'opacity-0' : 'opacity-100'}`}>
       <div className="text-center text-white">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-300">ARES·WALK</p>
-        <p className="mt-2 text-lg">Cargando Marte… {Math.round(progress)} %</p>
+        <p className="mt-2 text-lg">{t('Cargando Marte… {p} %', 'Loading Mars… {p} %', { p: Math.round(progress) })}</p>
       </div>
     </div>
   )

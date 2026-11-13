@@ -1,3 +1,4 @@
+import { t as say, tr } from '../i18n'
 import { SPE_FACTOR, SUIT, SURFACE_DOSE_MSV_PER_DAY } from '../data/environment'
 import { cellToUV, heightAt, uvToCell, type Terrain } from '../terrain/terrain'
 import type { Leg, RoutePlan, RoutePoint, Station, UV } from '../types'
@@ -38,7 +39,7 @@ export function planRoute(t: Terrain, habitat: Station, stops: Station[], opts: 
     const res = astar(grid, s.y * NAV + s.x, e.y * NAV + e.x, profile)
     if (!res.path.length) {
       legs.push({ from: a.id, to: b.id, distanceM: 0, hours: 0, ascentM: 0, descentM: 0, maxSlope: 0, ok: false })
-      warnings.push(`No hay un camino seguro de “${a.name}” a “${b.name}”.`)
+      warnings.push(say('No hay un camino seguro de “{a}” a “{b}”.', 'There is no safe path from “{a}” to “{b}”.', { a: tr(a.name), b: tr(b.name) }))
       continue
     }
     // Straighten the grid path, then walk it in small steps over the full-resolution relief,
@@ -100,14 +101,23 @@ export function planRoute(t: Terrain, habitat: Station, stops: Station[], opts: 
   const descentM = legs.reduce((s, l) => s + l.descentM, 0)
   const maxSlope = legs.reduce((s, l) => Math.max(s, l.maxSlope), 0)
 
-  if (eva && totalHours > SUIT.maxEvaHours) warnings.push(`La EVA dura ${totalHours.toFixed(1)} h: supera el máximo de ${SUIT.maxEvaHours} h.`)
-  if (o2Kg > SUIT.o2CapacityKg * 0.85) warnings.push('El oxígeno quedaría por debajo del 15 % de reserva.')
-  if (opts.solarEvent) warnings.push('Tormenta solar: la dosis se multiplica. Considera aplazar la EVA.')
+  if (eva && totalHours > SUIT.maxEvaHours)
+    warnings.push(say('La EVA dura {h} h: supera el máximo de {max} h.', 'The EVA lasts {h} h: over the {max} h maximum.', { h: totalHours.toFixed(1), max: SUIT.maxEvaHours }))
+  if (o2Kg > SUIT.o2CapacityKg * 0.85) warnings.push(say('El oxígeno quedaría por debajo del 15 % de reserva.', 'Oxygen would drop below the 15 % reserve.'))
+  if (opts.solarEvent) warnings.push(say('Tormenta solar: la dosis se multiplica. Considera aplazar la EVA.', 'Solar storm: the dose multiplies. Consider postponing the EVA.'))
   if (maxSlope > profile.cautionSlopeDeg)
     warnings.push(
       eva
-        ? `Hay tramos de hasta ${Math.round(maxSlope)}° de pendiente: caminar en pareja y con bastones.`
-        : `Hay tramos de hasta ${Math.round(maxSlope)}° de pendiente: conducir despacio y revisar la ruta con el equipo.`,
+        ? say('Hay tramos de hasta {s}° de pendiente: caminar en pareja y con bastones.', 'Some stretches reach {s}° of slope: walk in pairs and use poles.', {
+            s: Math.round(maxSlope),
+          })
+        : say(
+            'Hay tramos de hasta {s}° de pendiente: conducir despacio y revisar la ruta con el equipo.',
+            'Some stretches reach {s}° of slope: drive slowly and review the route with the team.',
+            {
+              s: Math.round(maxSlope),
+            },
+          ),
     )
 
   const feasible = legs.every((l) => l.ok) && (eva ? totalHours <= SUIT.maxEvaHours : true) && o2Kg <= SUIT.o2CapacityKg

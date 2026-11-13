@@ -26,7 +26,16 @@
     "unicorn/consistent-function-scoping": "off",
     "unicorn/no-array-sort": "off",
     "import/no-unassigned-import": "off",
-    "unicorn/require-post-message-target-origin": "off"
+    "unicorn/require-post-message-target-origin": "off",
+    "eslint/no-shadow": [
+      "warn",
+      {
+        "allow": [
+          "t",
+          "tr"
+        ]
+      }
+    ]
   },
   "ignorePatterns": [
     "dist",

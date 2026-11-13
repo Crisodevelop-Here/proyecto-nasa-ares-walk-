@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
 import { MISSIONS, type Mission } from '../data/missions'
 import type { View } from '../scene/MarsGlobe'
+import { setLang, t, tr, useLang } from '../i18n'
 
 interface Props {
   view: View
@@ -30,7 +31,7 @@ export function GlobeOverlay({ view, labels, hoverEl, onPickMission }: Props) {
               {m.name.split(' (')[0]}
             </p>
             <p className="text-[10px] leading-tight text-white/60">
-              {m.site} · {m.landed.slice(0, 4)}
+              {tr(m.site)} · {m.landed.slice(0, 4)}
             </p>
           </div>
         </div>
@@ -41,15 +42,20 @@ export function GlobeOverlay({ view, labels, hoverEl, onPickMission }: Props) {
         <div className="card-in pointer-events-none absolute left-4 top-4 max-w-md text-white sm:left-8 sm:top-8">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-300">NASA Space Apps 2026 · Martian Map</p>
           <h1 className="mt-1 text-4xl font-bold tracking-tight sm:text-5xl">ARES·WALK</h1>
-          <p className="mt-2 text-sm text-white/70">Mapa 3D para planear caminatas de astronautas en Marte, con datos reales de misiones de NASA.</p>
+          <p className="mt-2 text-sm text-white/70">
+            {t(
+              'Mapa 3D para planear caminatas de astronautas en Marte, con datos reales de misiones de NASA.',
+              'A 3D map to plan astronaut walks on Mars, with real data from NASA missions.',
+            )}
+          </p>
         </div>
       )}
       {view === 'globe' && (
         <nav
-          aria-label="Ir a una misión"
+          aria-label={t('Ir a una misión', 'Go to a mission')}
           className="card-in absolute inset-x-0 bottom-20 flex flex-row gap-1.5 overflow-x-auto px-4 pb-1 sm:inset-x-auto sm:bottom-auto sm:left-8 sm:top-44 sm:flex-col sm:items-start sm:overflow-visible sm:px-0"
         >
-          <p className="hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55 sm:block">Ir a una misión</p>
+          <p className="hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55 sm:block">{t('Ir a una misión', 'Go to a mission')}</p>
           {MISSIONS.filter((m) => m.kind === 'rover').map((m) => (
             <button
               key={m.id}
@@ -59,7 +65,7 @@ export function GlobeOverlay({ view, labels, hoverEl, onPickMission }: Props) {
             >
               <span className="h-2 w-2 rounded-full" style={{ background: m.color }} />
               {m.name.split(' (')[0]}
-              <span className="text-xs text-white/45">{m.site}</span>
+              <span className="text-xs text-white/55">{tr(m.site)}</span>
             </button>
           ))}
         </nav>
@@ -69,7 +75,7 @@ export function GlobeOverlay({ view, labels, hoverEl, onPickMission }: Props) {
           ref={hoverEl}
           className="pointer-events-none absolute bottom-6 left-1/2 w-max max-w-[92vw] -translate-x-1/2 truncate rounded-full bg-[#141a2b]/80 px-4 py-2 font-mono text-xs text-white/80 ring-1 ring-white/10 backdrop-blur"
         >
-          Toca o haz clic en cualquier punto de Marte
+          {t('Toca o haz clic en cualquier punto de Marte', 'Tap or click anywhere on Mars')}
         </p>
       )}
     </>
@@ -80,9 +86,40 @@ export function GlobeOverlay({ view, labels, hoverEl, onPickMission }: Props) {
 export function Credits({ view }: { view: View }) {
   return (
     <p className="pointer-events-none absolute bottom-6 left-6 hidden text-[11px] leading-snug text-white/55 lg:block">
-      {view === 'globe' ? 'Arrastra para girar · rueda para acercar · F pantalla completa' : 'Esc volver · 1 2 3 capas · arrastra para girar'}
+      {view === 'globe'
+        ? t('Arrastra para girar · rueda para acercar · F pantalla completa', 'Drag to rotate · scroll to zoom · F full screen')
+        : t('Esc volver · 1 2 3 capas · arrastra para girar', 'Esc back · 1 2 3 layers · drag to rotate')}
       <br />
-      MOLA, HiRISE, Viking: NASA/JPL/GSFC/UArizona · Textura: NASA Mars Trek (Viking MDIM 2.1) · respaldo: Solar System Scope (CC BY 4.0)
+      {t(
+        'MOLA, HiRISE, Viking: NASA/JPL/GSFC/UArizona · Textura: NASA Mars Trek (Viking MDIM 2.1) · respaldo: Solar System Scope (CC BY 4.0)',
+        'MOLA, HiRISE, Viking: NASA/JPL/GSFC/UArizona · Texture: NASA Mars Trek (Viking MDIM 2.1) · fallback: Solar System Scope (CC BY 4.0)',
+      )}
     </p>
+  )
+}
+
+/** Spanish / English switch. */
+export function LangToggle({ className = '' }: { className?: string }) {
+  const lang = useLang()
+  return (
+    <div
+      role="group"
+      aria-label={t('Idioma', 'Language')}
+      className={`flex rounded-full bg-[#141a2b]/80 p-0.5 text-xs font-semibold ring-1 ring-white/10 backdrop-blur ${className}`}
+    >
+      {(['es', 'en'] as const).map((l) => (
+        <button
+          key={l}
+          type="button"
+          lang={l}
+          aria-pressed={lang === l}
+          onClick={() => setLang(l)}
+          className={`rounded-full px-2.5 py-1 uppercase transition ${lang === l ? 'bg-orange-400 text-slate-900' : 'text-white/75 hover:text-white'}`}
+        >
+          {l}
+          <span className="sr-only"> · {l === 'es' ? 'Español' : 'English'}</span>
+        </button>
+      ))}
+    </div>
   )
 }

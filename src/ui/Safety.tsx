@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { t } from '../i18n'
 
 /** True when the browser can create a WebGL context (needed for the 3D view). */
 export function hasWebGL(): boolean {
@@ -25,9 +26,19 @@ function Screen({ title, children }: { title: string; children: ReactNode }) {
 /** Shown instead of the app when the device has no WebGL. */
 export function NoWebGL() {
   return (
-    <Screen title="Este equipo no puede mostrar 3D">
-      <p>ARES·WALK necesita WebGL, la tecnología de gráficos 3D del navegador, y no está disponible aquí.</p>
-      <p>Prueba con Chrome, Edge o Firefox actualizados y revisa que la aceleración por hardware esté activada en la configuración del navegador.</p>
+    <Screen title={t('Este equipo no puede mostrar 3D', 'This device cannot show 3D')}>
+      <p>
+        {t(
+          'ARES·WALK necesita WebGL, la tecnología de gráficos 3D del navegador, y no está disponible aquí.',
+          'ARES·WALK needs WebGL, the browser’s 3D graphics technology, and it is not available here.',
+        )}
+      </p>
+      <p>
+        {t(
+          'Prueba con Chrome, Edge o Firefox actualizados y revisa que la aceleración por hardware esté activada en la configuración del navegador.',
+          'Try an up-to-date Chrome, Edge or Firefox and check that hardware acceleration is turned on in the browser settings.',
+        )}
+      </p>
     </Screen>
   )
 }
@@ -51,14 +62,14 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   render() {
     if (!this.state.error) return this.props.children
     return (
-      <Screen title="Algo salió mal">
-        <p>La app encontró un error inesperado. Tu navegador y tus datos están bien.</p>
+      <Screen title={t('Algo salió mal', 'Something went wrong')}>
+        <p>{t('La app encontró un error inesperado. Tu navegador y tus datos están bien.', 'The app hit an unexpected error. Your browser and your data are fine.')}</p>
         <button
           type="button"
           onClick={() => window.location.reload()}
           className="mt-2 rounded-lg bg-orange-400 px-4 py-2 font-semibold text-slate-900 hover:bg-orange-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-200"
         >
-          Volver a cargar
+          {t('Volver a cargar', 'Reload')}
         </button>
         <p className="font-mono text-xs text-white/40">{this.state.error.message}</p>
       </Screen>

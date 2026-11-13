@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { arrivalCode, profile, TOUR_CAMERAS, pointIndexAt, type Arrival, type TourCamera, type TourState } from '../tour/tour'
 import type { RoutePlan } from '../types'
+import { locale, t, tr } from '../i18n'
 
 interface Props {
   mode: 'region' | 'site'
@@ -19,7 +20,7 @@ interface Props {
   onExit: () => void
 }
 
-const km = (m: number) => (m >= 1000 ? `${(m / 1000).toLocaleString('es-ES', { maximumFractionDigits: 1 })} km` : `${Math.round(m)} m`)
+const km = (m: number) => (m >= 1000 ? `${(m / 1000).toLocaleString(locale(), { maximumFractionDigits: 1 })} km` : `${Math.round(m)} m`)
 const hm = (h: number) => {
   const H = Math.floor(h)
   const M = Math.round((h - H) * 60)
@@ -57,17 +58,20 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
           className="card-in pointer-events-none absolute left-1/2 top-6 z-40 w-[min(92vw,460px)] -translate-x-1/2 rounded-2xl border border-white/10 bg-[#141a2b]/90 p-4 text-white shadow-2xl backdrop-blur"
         >
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">
-            {arrived.last ? 'Llegaste de vuelta al punto A (base)' : `Llegaste al punto ${arrivalCode(arrived)} de ${arrivals.length - 1}`} · {hm(arrived.t)} de misión
+            {arrived.last
+              ? t('Llegaste de vuelta al punto A (base)', 'Back at point A (base)')
+              : t('Llegaste al punto {c} de {n}', 'Reached point {c} of {n}', { c: arrivalCode(arrived), n: arrivals.length - 1 })}{' '}
+            · {t('{h} de misión', '{h} mission time', { h: hm(arrived.t) })}
           </p>
           <p className="mt-1 text-xl font-bold">
             <span className="mr-2 rounded-lg bg-orange-400 px-2 py-0.5 font-mono text-base text-slate-900">{arrivalCode(arrived)}</span>
-            {arrived.station.emoji} {arrived.station.name}
+            {arrived.station.emoji} {tr(arrived.station.name)}
           </p>
-          <p className="mt-1 text-sm text-white/80">{arrived.station.goal}</p>
-          {!arrived.last && <p className="mt-1.5 text-xs text-white/55">{arrived.station.why}</p>}
+          <p className="mt-1 text-sm text-white/80">{tr(arrived.station.goal)}</p>
+          {!arrived.last && <p className="mt-1.5 text-xs text-white/55">{tr(arrived.station.why)}</p>}
           {arrived.station.workMin > 0 && (
             <p className="mt-2 text-xs text-sky-200/80">
-              EVA de {arrived.station.workMin} min · {arrived.station.tools.join(' · ')}
+              {t('EVA de {m} min', '{m} min EVA', { m: arrived.station.workMin })} · {arrived.station.tools.map(tr).join(' · ')}
             </p>
           )}
         </div>
@@ -78,7 +82,7 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
           <button
             type="button"
             onClick={onPlay}
-            aria-label={tour.playing ? 'Pausar recorrido' : done ? 'Repetir recorrido' : 'Reproducir recorrido'}
+            aria-label={tour.playing ? t('Pausar recorrido', 'Pause traverse') : done ? t('Repetir recorrido', 'Replay traverse') : t('Reproducir recorrido', 'Play traverse')}
             className="grid h-10 w-10 place-items-center rounded-full bg-orange-400 text-lg font-bold text-slate-900 transition hover:bg-orange-300"
             title="Espacio"
           >
@@ -86,19 +90,23 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
           </button>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">
-              {mode === 'site' ? 'EVA a pie · Monte Sharp' : 'Travesía en rover (tipo Perseverance)'}
+              {mode === 'site' ? t('EVA a pie · Monte Sharp', 'EVA on foot · Mount Sharp') : t('Travesía en rover (tipo Perseverance)', 'Rover traverse (Perseverance-style)')}
             </p>
             <p className="truncate text-sm text-white/85">
               {done ? (
-                `Recorrido completo A → ${arrivals
-                  .filter((a) => !a.last)
-                  .map(arrivalCode)
-                  .join(' → ')} → A: ${km(total)} en ${hm(plan.walkHours)} de marcha`
+                t('Recorrido completo A → {stops} → A: {d} en {h} de marcha', 'Traverse complete A → {stops} → A: {d} in {h} of driving', {
+                  stops: arrivals
+                    .filter((a) => !a.last)
+                    .map(arrivalCode)
+                    .join(' → '),
+                  d: km(total),
+                  h: hm(plan.walkHours),
+                })
               ) : (
                 <>
-                  <b className="font-mono text-orange-300">{prevStop ? arrivalCode(prevStop) : 'A'}</b> {prevStop?.station.name ?? baseName}{' '}
+                  <b className="font-mono text-orange-300">{prevStop ? arrivalCode(prevStop) : 'A'}</b> {prevStop ? tr(prevStop.station.name) : baseName}{' '}
                   <span className="text-white/50">→</span> <b className="font-mono text-orange-300">{nextStop ? arrivalCode(nextStop) : 'A'}</b>{' '}
-                  {nextStop?.station.name ?? baseName}
+                  {nextStop ? tr(nextStop.station.name) : baseName}
                 </>
               )}
             </p>
@@ -107,10 +115,11 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
             {TOUR_CAMERAS.map((c) => (
               <button
                 key={c.id}
+                type="button"
                 onClick={() => onCamera(c.id)}
                 className={`rounded-md px-2.5 py-1 font-medium transition ${tour.camera === c.id ? 'bg-white/20 text-white' : 'text-white/60 hover:text-white'}`}
               >
-                {c.label}
+                {tr(c.label)}
               </button>
             ))}
           </div>
@@ -118,6 +127,8 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
             {[0.5, 1, 2, 4].map((s) => (
               <button
                 key={s}
+                type="button"
+                aria-label={t('Velocidad ×{s}', 'Speed ×{s}', { s })}
                 onClick={() => onSpeed(s)}
                 className={`rounded-md px-2 py-1 font-mono transition ${tour.speed === s ? 'bg-white/20 text-white' : 'text-white/60 hover:text-white'}`}
               >
@@ -125,18 +136,22 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
               </button>
             ))}
           </div>
-          <button onClick={onExit} className="rounded-lg px-2.5 py-1.5 text-xs text-white/70 ring-1 ring-white/15 transition hover:bg-white/10" title="Esc">
-            Salir
+          <button type="button" onClick={onExit} className="rounded-lg px-2.5 py-1.5 text-xs text-white/70 ring-1 ring-white/15 transition hover:bg-white/10" title="Esc">
+            {t('Salir', 'Exit')}
           </button>
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-5">
-          <Stat label="recorrido" value={`${km(tour.d)} / ${km(total)}`} />
-          <Stat label="elevación" value={`${Math.round(p.z).toLocaleString('es-ES')} m`} />
-          <Stat label="pendiente" value={`${p.slope.toFixed(1)}°`} className={slopeColor} />
-          <Stat label="reloj de misión" value={hm(p.t)} />
+          <Stat label={t('recorrido', 'travelled')} value={`${km(tour.d)} / ${km(total)}`} />
+          <Stat label={t('elevación', 'elevation')} value={`${Math.round(p.z).toLocaleString(locale())} m`} />
+          <Stat label={t('pendiente', 'slope')} value={`${p.slope.toFixed(1)}°`} className={slopeColor} />
+          <Stat label={t('reloj de misión', 'mission clock')} value={hm(p.t)} />
           <Stat
-            label={tour.hold > 0 ? `trabajando en ${prevStop ? arrivalCode(prevStop) : 'A'}` : `hasta ${nextStop ? arrivalCode(nextStop) : 'A'}`}
+            label={
+              tour.hold > 0
+                ? t('trabajando en {c}', 'working at {c}', { c: prevStop ? arrivalCode(prevStop) : 'A' })
+                : t('hasta {c}', 'to {c}', { c: nextStop ? arrivalCode(nextStop) : 'A' })
+            }
             value={tour.hold > 0 ? '⛏' : nextStop ? km(Math.max(0, nextStop.d - tour.d)) : '—'}
             className="hidden sm:block"
           />

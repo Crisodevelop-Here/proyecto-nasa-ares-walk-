@@ -17,7 +17,8 @@ import { Traveler } from './scene/Traveler'
 import { arrivals, newTour, TOUR_CAMERAS, type TourCamera, type TourState } from './tour/tour'
 import { TourHud } from './ui/TourHud'
 import { LayerLegend } from './ui/LayerLegend'
-import { Credits, GlobeOverlay } from './ui/GlobeOverlay'
+import { Credits, GlobeOverlay, LangToggle } from './ui/GlobeOverlay'
+import { t, tr, useLang } from './i18n'
 import { Loader } from './ui/Loader'
 import { SUIT } from './data/environment'
 
@@ -49,6 +50,8 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('missions')
   const [solarStorm, setSolarStorm] = useState(false)
   const [siteTerrain, setSiteTerrain] = useState<Terrain | null>(null)
+  // Re-render everything (and re-plan routes, whose texts are generated) when the language changes.
+  const lang = useLang()
   const labels = useRef<Record<string, HTMLElement | null>>({})
   const hoverEl = useRef<HTMLParagraphElement>(null)
   const request = useRef(0)
@@ -136,16 +139,19 @@ export default function App() {
       [[m.lat, m.lon] as [number, number], ...m.track, ...m.milestones.map((x) => [x.lat, x.lon] as [number, number])].some(([a, b]) => insidePatch(latLonToUV(frame, a, b))),
     )
   }, [focus, region, frameKm])
-  const habitat = useMemo(() => (region ? habitatFor(region, nearMissions) : null), [region, nearMissions])
+  // oxlint-disable-next-line react-hooks/exhaustive-deps, react/memo-dependencies -- lang: these build texts in the current language
+  const habitat = useMemo(() => (region ? habitatFor(region, nearMissions) : null), [region, nearMissions, lang])
   const stops = useMemo(() => {
     if (!region || !habitat) return []
     const fromMissions = missionStops(region, nearMissions, habitat)
     return fromMissions.length >= 2 ? fromMissions : terrainStops(region)
-  }, [region, nearMissions, habitat])
+    // oxlint-disable-next-line react-hooks/exhaustive-deps, react/memo-dependencies -- lang: these build texts in the current language
+  }, [region, nearMissions, habitat, lang])
   const plan = useMemo(() => {
     if (!region || !habitat || !stops.length) return null
     return planRoute(region.terrain, habitat, stops, { profile: ROVER, solarEvent: solarStorm, doseMSvPerDay: doseAtElevation(region.meanZ) })
-  }, [region, habitat, stops, solarStorm])
+    // oxlint-disable-next-line react-hooks/exhaustive-deps, react/memo-dependencies -- lang: these build texts in the current language
+  }, [region, habitat, stops, solarStorm, lang])
   const sitePlan = useMemo(
     () =>
       siteTerrain
@@ -156,7 +162,8 @@ export default function App() {
             { solarEvent: solarStorm },
           )
         : null,
-    [siteTerrain, solarStorm],
+    // oxlint-disable-next-line react-hooks/exhaustive-deps, react/memo-dependencies -- lang: these build texts in the current language
+    [siteTerrain, solarStorm, lang],
   )
   const siteY = useMemo(() => (siteTerrain ? sitePlacement(siteTerrain).targetY : 10), [siteTerrain])
   const regionY = useMemo(() => (region ? regionPlacement(region.terrain).targetY : 10), [region])
@@ -228,7 +235,7 @@ export default function App() {
     const el = hoverEl.current
     if (!el) return
     if (!p) {
-      el.textContent = 'Toca o haz clic en cualquier punto de Marte'
+      el.textContent = t('Toca o haz clic en cualquier punto de Marte', 'Tap or click anywhere on Mars')
       return
     }
     const n = placeName(p.lat, p.lon)
@@ -263,7 +270,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [back, view, stopTour, togglePlay, setTourCamera])
 
-  const layerButtons = view === 'site' ? LAYERS.map((l) => ({ id: l.id, label: l.label })) : REGION_LAYERS.map((l) => ({ id: l.id, label: l.label }))
+  const layerButtons = view === 'site' ? LAYERS.map((l) => ({ id: l.id, label: tr(l.label) })) : REGION_LAYERS.map((l) => ({ id: l.id, label: tr(l.label) }))
   const currentLayer = view === 'site' ? siteLayer : layer
 
   return (
@@ -310,7 +317,7 @@ export default function App() {
       {view !== 'globe' && !tourUI && (
         <div
           role="group"
-          aria-label="Capas del mapa"
+          aria-label={t('Capas del mapa', 'Map layers')}
           className="card-in absolute left-2 top-2 flex gap-1 rounded-xl border border-white/10 bg-[#141a2b]/80 p-1 text-sm text-white backdrop-blur sm:left-6 sm:top-6"
         >
           {layerButtons.map((l, i) => (
@@ -334,7 +341,7 @@ export default function App() {
           onClick={startTour}
           className="card-in absolute left-2 top-16 flex items-center gap-2 rounded-xl bg-orange-400 px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-lg shadow-orange-500/30 transition hover:bg-orange-300 sm:left-6 sm:top-20"
         >
-          <span className="text-base">▶</span> {view === 'site' ? 'Recorrer la EVA a pie' : 'Recorrer la ruta en rover'}
+          <span className="text-base">▶</span> {view === 'site' ? t('Recorrer la EVA a pie', 'Walk the EVA route') : t('Recorrer la ruta en rover', 'Drive the rover route')}
         </button>
       )}
       {view === 'region' && region && !tourUI && <LayerLegend region={region} layer={layer} />}
@@ -344,7 +351,7 @@ export default function App() {
           plan={tourPlan}
           arrivals={tourArrivals}
           tour={tourUI}
-          baseName={view === 'site' ? STATION_BY_ID.hab.name : (habitat?.name ?? 'Base')}
+          baseName={view === 'site' ? tr(STATION_BY_ID.hab.name) : (habitat?.name ?? 'Base')}
           maxSlope={view === 'site' ? SUIT.maxSlopeDeg : ROVER.maxSlopeDeg}
           onPlay={togglePlay}
           onSeek={seek}
@@ -378,6 +385,7 @@ export default function App() {
       )}
 
       <Credits view={view} />
+      {view === 'globe' && <LangToggle className="card-in absolute right-4 top-4 sm:right-8 sm:top-8" />}
 
       <Loader />
     </div>

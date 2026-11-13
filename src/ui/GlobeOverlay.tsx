@@ -45,28 +45,31 @@ export function GlobeOverlay({ view, labels, hoverEl, onPickMission }: Props) {
         </div>
       )}
       {view === 'globe' && (
-        <div className="card-in absolute left-4 top-40 hidden flex-col items-start gap-1.5 sm:left-8 sm:top-44 sm:flex">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Ir a una misión</p>
+        <nav
+          aria-label="Ir a una misión"
+          className="card-in absolute inset-x-0 bottom-20 flex flex-row gap-1.5 overflow-x-auto px-4 pb-1 sm:inset-x-auto sm:bottom-auto sm:left-8 sm:top-44 sm:flex-col sm:items-start sm:overflow-visible sm:px-0"
+        >
+          <p className="hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55 sm:block">Ir a una misión</p>
           {MISSIONS.filter((m) => m.kind === 'rover').map((m) => (
             <button
               key={m.id}
               type="button"
               onClick={() => onPickMission(m)}
-              className="flex items-center gap-2 rounded-full bg-[#141a2b]/75 px-3 py-1 text-sm text-white/85 ring-1 ring-white/10 backdrop-blur transition hover:bg-white/15"
+              className="flex shrink-0 items-center gap-2 rounded-full bg-[#141a2b]/75 px-3 py-1 text-sm text-white/85 ring-1 ring-white/10 backdrop-blur transition hover:bg-white/15"
             >
               <span className="h-2 w-2 rounded-full" style={{ background: m.color }} />
               {m.name.split(' (')[0]}
               <span className="text-xs text-white/45">{m.site}</span>
             </button>
           ))}
-        </div>
+        </nav>
       )}
       {view === 'globe' && (
         <p
           ref={hoverEl}
-          className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#141a2b]/80 px-4 py-2 font-mono text-xs text-white/80 ring-1 ring-white/10 backdrop-blur"
+          className="pointer-events-none absolute bottom-6 left-1/2 w-max max-w-[92vw] -translate-x-1/2 truncate rounded-full bg-[#141a2b]/80 px-4 py-2 font-mono text-xs text-white/80 ring-1 ring-white/10 backdrop-blur"
         >
-          Haz clic en cualquier punto de Marte para explorarlo
+          Toca o haz clic en cualquier punto de Marte
         </p>
       )}
     </>

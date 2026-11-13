@@ -1,4 +1,4 @@
-import AxeBuilder from '@axe-core/playwright'
+import { AxeBuilder } from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 
 // Automatic accessibility audit (axe-core, WCAG 2.1 A/AA) of the globe and the regional view.

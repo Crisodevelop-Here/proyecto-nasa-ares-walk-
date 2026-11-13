@@ -68,6 +68,25 @@ interface Flight {
   fromQ: THREE.Quaternion
 }
 
+/**
+ * Keeps the horizontal field of view in portrait screens (phones): widens the vertical FOV so the
+ * globe and the terrain fit the narrow width instead of overflowing the sides.
+ */
+function ResponsiveFov() {
+  const { camera, size } = useThree()
+  useEffect(() => {
+    if (!(camera instanceof THREE.PerspectiveCamera)) return
+    const aspect = size.width / Math.max(1, size.height)
+    const base = 38
+    const fov = aspect >= 1 ? base : Math.min(78, (2 * Math.atan(Math.tan((base * Math.PI) / 360) / aspect) * 180) / Math.PI)
+    if (Math.abs(camera.fov - fov) > 0.01) {
+      camera.fov = fov
+      camera.updateProjectionMatrix()
+    }
+  }, [camera, size])
+  return null
+}
+
 function Director({ view, focus, shot, siteY, regionY, regionSpan, planet, labels, hovering, tour }: DirectorProps) {
   const { camera, size } = useThree()
   const controls = useRef<OrbitControlsImpl>(null)
@@ -249,6 +268,7 @@ export function Stage({ view, focus, shot, siteTerrain, sitePlan, siteY, siteLay
           setLow(true)
         }}
       />
+      <ResponsiveFov />
       <color attach="background" args={['#03040a']} />
       <ambientLight intensity={0.18} color="#c9d4ff" />
       <directionalLight position={SUN.clone().multiplyScalar(100)} intensity={3.2} color="#fff1e0" />

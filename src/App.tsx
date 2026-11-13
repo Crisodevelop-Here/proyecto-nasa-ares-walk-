@@ -228,7 +228,7 @@ export default function App() {
     const el = hoverEl.current
     if (!el) return
     if (!p) {
-      el.textContent = 'Haz clic en cualquier punto de Marte para explorarlo'
+      el.textContent = 'Toca o haz clic en cualquier punto de Marte'
       return
     }
     const n = placeName(p.lat, p.lon)

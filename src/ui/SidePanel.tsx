@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { COMMS_DELAY_MIN, doseAtElevation, pressureAtElevation, ROVER, SUIT, tempRange } from '../data/environment'
 import { distanceKm, MISSIONS, type Milestone, type Mission } from '../data/missions'
 import type { Optical } from '../region/regionLayers'
@@ -78,9 +79,15 @@ interface Props {
 
 export function SidePanel(p: Props) {
   const name = placeName(p.focus.lat, p.focus.lon)
+  // On phones the panel can be folded down to its header so the map stays visible.
+  const [folded, setFolded] = useState(false)
   return (
     <aside className="card-in pointer-events-auto absolute inset-x-2 bottom-2 z-30 flex max-h-[58vh] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#141a2b]/88 text-white shadow-2xl backdrop-blur-md sm:inset-x-auto sm:bottom-4 sm:right-4 sm:top-4 sm:max-h-none sm:w-[420px]">
-      <header className="border-b border-white/10 px-5 pb-3 pt-4">
+      <button type="button" onClick={() => setFolded((f) => !f)} aria-expanded={!folded} aria-controls="side-panel-content" className="flex w-full justify-center pt-2 sm:hidden">
+        <span className="h-1.5 w-12 rounded-full bg-white/30" />
+        <span className="sr-only">{folded ? 'Mostrar el panel' : 'Ocultar el panel'}</span>
+      </button>
+      <header className="border-b border-white/10 px-5 pb-3 pt-2 sm:pt-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-300">
@@ -104,7 +111,7 @@ export function SidePanel(p: Props) {
         <nav
           role="tablist"
           aria-label="Información del lugar"
-          className="mt-3 grid grid-cols-4 gap-1 rounded-xl bg-black/25 p-1 text-sm"
+          className={`mt-3 grid-cols-4 ${folded ? 'hidden sm:grid' : 'grid'} gap-1 rounded-xl bg-black/25 p-1 text-sm`}
           onKeyDown={(e) => {
             // Arrow keys move between tabs, as screen-reader users expect.
             if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
@@ -131,7 +138,13 @@ export function SidePanel(p: Props) {
           ))}
         </nav>
       </header>
-      <div id="side-panel-content" role="tabpanel" aria-labelledby={`tab-${p.tab}`} tabIndex={0} className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-sm leading-relaxed">
+      <div
+        id="side-panel-content"
+        role="tabpanel"
+        aria-labelledby={`tab-${p.tab}`}
+        tabIndex={0}
+        className={`min-h-0 flex-1 overflow-y-auto ${folded ? 'hidden sm:block' : ''} px-5 py-4 text-sm leading-relaxed`}
+      >
         {!p.region && p.view === 'region' ? (
           <p className="text-white/60">Cargando relieve MOLA de la zona…</p>
         ) : p.tab === 'missions' ? (

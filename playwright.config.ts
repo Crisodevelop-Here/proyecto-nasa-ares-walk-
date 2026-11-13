@@ -3,7 +3,8 @@ import { defineConfig } from '@playwright/test'
 // End-to-end tests: open the real app in Chrome and click through it like a user.
 export default defineConfig({
   testDir: 'e2e',
-  timeout: 60_000,
+  // Software WebGL is slow; the full walkthrough needs room.
+  timeout: 150_000,
   expect: { timeout: 20_000 },
   use: {
     baseURL: 'http://localhost:5173',

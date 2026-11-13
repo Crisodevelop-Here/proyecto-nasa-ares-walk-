@@ -27,6 +27,13 @@ test('globe → Gale crater → tabs, layers and back', async ({ page }) => {
   await page.keyboard.press('3')
   await expect(page.getByText(/por dónde se puede ir/i)).toBeVisible()
 
+  // Guided rover traverse: start it, switch cameras, leave it.
+  await page.getByRole('button', { name: /Recorrer la ruta en rover/ }).click()
+  for (const cam of ['Cabina', 'Dron', 'Seguir']) await page.getByRole('button', { name: cam, exact: true }).click({ force: true })
+  await page.waitForTimeout(1500)
+  await page.getByRole('button', { name: 'Salir', exact: true }).click({ force: true })
+  await expect(page.getByRole('button', { name: /Recorrer la ruta en rover/ })).toBeVisible()
+
   // Esc goes back to the globe.
   await page.keyboard.press('Escape')
   await expect(page.getByText('Ir a una misión')).toBeVisible()

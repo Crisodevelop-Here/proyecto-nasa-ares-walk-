@@ -1,4 +1,3 @@
-import { useProgress } from '@react-three/drei'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { doseAtElevation, ROVER } from './data/environment'
@@ -18,31 +17,13 @@ import { Traveler } from './scene/Traveler'
 import { arrivals, newTour, TOUR_CAMERAS, type TourCamera, type TourState } from './tour/tour'
 import { TourHud } from './ui/TourHud'
 import { LayerLegend } from './ui/LayerLegend'
+import { Credits, GlobeOverlay } from './ui/GlobeOverlay'
+import { Loader } from './ui/Loader'
 import { SUIT } from './data/environment'
 
 const SITE_STOPS = ['boxwork', 'contact', 'mounds']
 /** A click closer than this to a mission's site, track or milestone opens that mission's traverse. */
 const SNAP_KM = 12
-
-function Loader() {
-  const { active, progress } = useProgress()
-  const [gone, setGone] = useState(false)
-  useEffect(() => {
-    if (!active && progress === 100) {
-      const id = setTimeout(() => setGone(true), 700)
-      return () => clearTimeout(id)
-    }
-  }, [active, progress])
-  if (gone) return null
-  return (
-    <div className={`absolute inset-0 z-50 grid place-items-center bg-[#03040a] transition-opacity duration-700 ${!active && progress === 100 ? 'opacity-0' : 'opacity-100'}`}>
-      <div className="text-center text-white">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-300">ARES·WALK</p>
-        <p className="mt-2 text-lg">Cargando Marte… {Math.round(progress)} %</p>
-      </div>
-    </div>
-  )
-}
 
 /** Canvas textures of the current region, disposed when another spot is picked. */
 const regionTextures: THREE.Texture[] = []
@@ -323,59 +304,7 @@ export default function App() {
         {view === 'site' && siteTerrain && sitePlan && <Traveler key="site" mode="site" terrain={siteTerrain} plan={sitePlan} arrivals={tourArrivals} tour={tour} onTick={tick} />}
       </Stage>
 
-      {/* Mission labels on the globe, positioned every frame by the scene */}
-      {MISSIONS.map((m) => (
-        <div
-          key={m.id}
-          ref={(el) => {
-            labels.current[m.id] = el
-          }}
-          className="pointer-events-none absolute left-0 top-0 transition-opacity duration-500"
-          style={{ opacity: 0 }}
-        >
-          <div className="-mt-4 ml-3 whitespace-nowrap rounded-lg bg-black/60 px-2 py-0.5 shadow-lg backdrop-blur">
-            <p className="text-xs font-semibold leading-tight" style={{ color: m.color }}>
-              {m.name.split(' (')[0]}
-            </p>
-            <p className="text-[10px] leading-tight text-white/60">
-              {m.site} · {m.landed.slice(0, 4)}
-            </p>
-          </div>
-        </div>
-      ))}
-
-      {/* Title + hover readout on the globe */}
-      {view === 'globe' && (
-        <div className="card-in pointer-events-none absolute left-4 top-4 max-w-md text-white sm:left-8 sm:top-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-300">NASA Space Apps 2026 · Martian Map</p>
-          <h1 className="mt-1 text-4xl font-bold tracking-tight sm:text-5xl">ARES·WALK</h1>
-          <p className="mt-2 text-sm text-white/70">Mapa 3D para planear caminatas de astronautas en Marte, con datos reales de misiones de NASA.</p>
-        </div>
-      )}
-      {view === 'globe' && (
-        <div className="card-in absolute left-4 top-40 hidden flex-col items-start gap-1.5 sm:left-8 sm:top-44 sm:flex">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Ir a una misión</p>
-          {MISSIONS.filter((m) => m.kind === 'rover').map((m) => (
-            <button
-              key={m.id}
-              onClick={() => pick(m.lat, m.lon)}
-              className="flex items-center gap-2 rounded-full bg-[#141a2b]/75 px-3 py-1 text-sm text-white/85 ring-1 ring-white/10 backdrop-blur transition hover:bg-white/15"
-            >
-              <span className="h-2 w-2 rounded-full" style={{ background: m.color }} />
-              {m.name.split(' (')[0]}
-              <span className="text-xs text-white/45">{m.site}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      {view === 'globe' && (
-        <p
-          ref={hoverEl}
-          className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#141a2b]/80 px-4 py-2 font-mono text-xs text-white/80 ring-1 ring-white/10 backdrop-blur"
-        >
-          Haz clic en cualquier punto de Marte para explorarlo
-        </p>
-      )}
+      <GlobeOverlay view={view} labels={labels} hoverEl={hoverEl} onPickMission={(m) => pick(m.lat, m.lon)} />
 
       {/* Layer switcher on the terrain */}
       {view !== 'globe' && !tourUI && (
@@ -441,11 +370,7 @@ export default function App() {
         />
       )}
 
-      <p className="pointer-events-none absolute bottom-6 left-6 hidden text-[11px] leading-snug text-white/35 lg:block">
-        {view === 'globe' ? 'Arrastra para girar · rueda para acercar · F pantalla completa' : 'Esc volver · 1 2 3 capas · arrastra para girar'}
-        <br />
-        MOLA, HiRISE, Viking: NASA/JPL/GSFC/UArizona · Textura: NASA Mars Trek (Viking MDIM 2.1) · respaldo: Solar System Scope (CC BY 4.0)
-      </p>
+      <Credits view={view} />
 
       <Loader />
     </div>

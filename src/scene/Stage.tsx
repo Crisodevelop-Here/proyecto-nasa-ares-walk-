@@ -259,6 +259,9 @@ export function Stage({ view, focus, shot, siteTerrain, sitePlan, siteY, siteLay
       role="region"
       gl={{ logarithmicDepthBuffer: true, antialias: !LITE }}
       onCreated={({ gl }) => {
+        // Checking shader logs makes the browser wait for each shader to compile (a stall when a new
+        // view appears). Useful while developing; skipped in the published build.
+        gl.debug.checkShaderErrors = import.meta.env.DEV
         gl.toneMapping = THREE.ACESFilmicToneMapping
         gl.toneMappingExposure = 1.1
       }}

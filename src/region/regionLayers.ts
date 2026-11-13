@@ -1,7 +1,10 @@
-import { ROVER, SUIT } from '../data/environment'
 import { wrapLon } from '../scene/mars'
-import { bakeGround, type GroundInput, type GroundOutput } from './groundBake'
+import { bakeGround, type GroundOutput } from './groundBake'
+import type { LayerJob } from './layers.worker'
+import { classOf, contourInterval, MAP_SIZE, slopeGrid, slopePixels, SLOPE_CLASSES, topoPixels, type HeightGrid } from './mapLayers'
 import { REGION_EX, REGION_GRID, uvToLatLon, type Region } from './regionTerrain'
+
+export { RELIEF_RAMP, SLOPE_CLASSES, contourInterval } from './mapLayers'
 
 export type RegionLayer = 'optical' | 'topo' | 'slope'
 export const REGION_LAYERS: { id: RegionLayer; label: string; data: string }[] = [
@@ -18,82 +21,14 @@ function canvas(size = OUT) {
   return c
 }
 
-/** Hillshade (0..1) of the elevation grid, sun from the north-west at 35°. */
-function shade(r: Region) {
-  const g = REGION_GRID
-  const h = r.terrain.heights
-  const cell = r.terrain.meta.sizeM / (g - 1)
-  const out = new Float32Array(g * g)
-  const at = (x: number, y: number) => h[Math.min(g - 1, Math.max(0, y)) * g + Math.min(g - 1, Math.max(0, x))]
-  const ex = 3
-  const sun = [-0.5, 0.5, 0.71] // toward the sun: east (−0.5 = west), north, up
-  const sl = Math.hypot(...sun)
-  for (let y = 0; y < g; y++)
-    for (let x = 0; x < g; x++) {
-      const dzdx = ((at(x + 1, y) - at(x - 1, y)) / (2 * cell)) * ex
-      const dzdn = ((at(x, y - 1) - at(x, y + 1)) / (2 * cell)) * ex // +north
-      const nx = -dzdx
-      const ny = -dzdn
-      const nz = 1
-      const nl = Math.hypot(nx, ny, nz)
-      out[y * g + x] = Math.max(0, (nx * sun[0] + ny * sun[1] + nz * sun[2]) / (nl * sl))
-    }
-  return out
-}
-
-// ---------- relief: an Earth atlas map (hypsometric tints + hillshade + contour lines), Martian palette ----------
-
-/**
- * Hypsometric tints in the spirit of Earth's physical atlases (lowlands → uplands → peaks),
- * shifted to Martian hues: no sea blue, deep basins in cold violet-grey, plains in olive-ochre,
- * uplands in rust and the highest ground in pale dust.
- */
-export const RELIEF_RAMP: [number, [number, number, number]][] = [
-  [0, [72, 80, 128]],
-  [0.14, [78, 122, 136]],
-  [0.3, [96, 128, 92]],
-  [0.46, [176, 162, 96]],
-  [0.62, [196, 124, 66]],
-  [0.78, [150, 78, 50]],
-  [0.9, [196, 160, 136]],
-  [1, [246, 240, 232]],
-]
-function ramp(t: number): [number, number, number] {
-  t = Math.min(1, Math.max(0, t))
-  for (let i = 1; i < RELIEF_RAMP.length; i++)
-    if (t <= RELIEF_RAMP[i][0]) {
-      const [a, ca] = RELIEF_RAMP[i - 1]
-      const [b, cb] = RELIEF_RAMP[i]
-      const f = (t - a) / (b - a)
-      return [ca[0] + (cb[0] - ca[0]) * f, ca[1] + (cb[1] - ca[1]) * f, ca[2] + (cb[2] - ca[2]) * f]
-    }
-  return RELIEF_RAMP[RELIEF_RAMP.length - 1][1]
-}
-
-/** Bilinear elevation and its gradient at fractional grid coordinates. */
-function sampler(r: Region) {
-  const g = REGION_GRID
-  const h = r.terrain.heights
-  const cell = r.terrain.meta.sizeM / (g - 1)
-  const at = (x: number, y: number) => h[Math.min(g - 1, Math.max(0, y)) * g + Math.min(g - 1, Math.max(0, x))]
-  const z = (fx: number, fy: number) => {
-    const x0 = Math.floor(fx)
-    const y0 = Math.floor(fy)
-    const tx = fx - x0
-    const ty = fy - y0
-    return at(x0, y0) * (1 - tx) * (1 - ty) + at(x0 + 1, y0) * tx * (1 - ty) + at(x0, y0 + 1) * (1 - tx) * ty + at(x0 + 1, y0 + 1) * tx * ty
-  }
-  return { g, cell, z }
-}
-
-/** Nice contour interval giving about `n` lines over the range. */
-export function contourInterval(range: number, n = 14) {
-  const raw = range / n
-  const steps = [1, 2, 2.5, 5, 10]
-  const p = 10 ** Math.floor(Math.log10(raw))
-  for (const s of steps) if (s * p >= raw) return s * p
-  return 10 * p
-}
+/** The patch's elevation grid in the plain form the map functions (and the worker) take. */
+const heightGrid = (r: Region): HeightGrid => ({
+  heights: r.terrain.heights,
+  grid: REGION_GRID,
+  sizeM: r.terrain.meta.sizeM,
+  zMin: r.terrain.meta.zMin,
+  zMax: r.terrain.meta.zMax,
+})
 
 export interface ReliefLegend {
   zMin: number
@@ -106,98 +41,14 @@ export const reliefLegend = (r: Region): ReliefLegend => ({
   interval: contourInterval(r.terrain.meta.zMax - r.terrain.meta.zMin),
 })
 
-export function topoCanvas(r: Region) {
-  const S = OUT
-  const { g, cell, z } = sampler(r)
-  const { zMin, zMax, interval } = reliefLegend(r)
-  const c = canvas(S)
-  const ctx = c.getContext('2d')!
-  const img = ctx.createImageData(S, S)
-  const k = (g - 1) / (S - 1)
-  const Z = new Float32Array(S * S)
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) Z[y * S + x] = z(x * k, y * k)
-  const px = cell * k // metres per output pixel
-  // Several suns (NW strongest, plus W and N) like a cartographic hillshade, with relief exaggerated
-  // so gentle Martian plains still read.
-  const suns = [
-    [-0.6, 0.6, 0.53, 0.55],
-    [-0.85, 0, 0.53, 0.25],
-    [0, 0.85, 0.53, 0.2],
-  ]
-  const ex = 6
-  for (let y = 0; y < S; y++)
-    for (let x = 0; x < S; x++) {
-      const i = y * S + x
-      const zx = (Z[y * S + Math.min(S - 1, x + 1)] - Z[y * S + Math.max(0, x - 1)]) / (2 * px)
-      const zn = (Z[Math.max(0, y - 1) * S + x] - Z[Math.min(S - 1, y + 1) * S + x]) / (2 * px)
-      const nx = -zx * ex
-      const ny = -zn * ex
-      const nl = Math.hypot(nx, ny, 1)
-      let sh = 0
-      for (const [sx, sy, sz, w] of suns) sh += (w * Math.max(0, (nx * sx + ny * sy + sz) / Math.hypot(sx, sy, sz))) / nl
-      const [R, G, B] = ramp((Z[i] - zMin) / (zMax - zMin))
-      const lit = 0.5 + 0.9 * sh
-      let r0 = R * lit
-      let g0 = G * lit
-      let b0 = B * lit
-      // Contour lines: where the interval band changes between neighbours. Every 5th is bolder.
-      const band = Math.floor(Z[i] / interval)
-      const right = x + 1 < S ? Math.floor(Z[i + 1] / interval) : band
-      const down = y + 1 < S ? Math.floor(Z[i + S] / interval) : band
-      if (right !== band || down !== band) {
-        const idx = Math.max(band, right, down)
-        const major = ((idx % 5) + 5) % 5 === 0
-        const a = major ? 0.55 : 0.28
-        r0 = r0 * (1 - a) + 40 * a
-        g0 = g0 * (1 - a) + 22 * a
-        b0 = b0 * (1 - a) + 14 * a
-      }
-      img.data[i * 4] = r0
-      img.data[i * 4 + 1] = g0
-      img.data[i * 4 + 2] = b0
-      img.data[i * 4 + 3] = 255
-    }
-  ctx.putImageData(img, 0, 0)
-  return c
-}
-
-// ---------- slope: where the rover and the crew can go ----------
-
-/** Slope classes, tied to the rover and suit limits used by the route planner. */
-export const SLOPE_CLASSES: { max: number; color: [number, number, number]; label: string; meaning: string }[] = [
-  { max: 2, color: [24, 110, 84], label: '0–2°', meaning: 'Llano: aterrizaje, base y campamento' },
-  { max: 5, color: [86, 168, 96], label: '2–5°', meaning: 'Rover a toda velocidad' },
-  { max: ROVER.cautionSlopeDeg, color: [206, 200, 74], label: `5–${ROVER.cautionSlopeDeg}°`, meaning: 'Rover con precaución' },
-  { max: ROVER.maxSlopeDeg, color: [236, 140, 48], label: `${ROVER.cautionSlopeDeg}–${ROVER.maxSlopeDeg}°`, meaning: 'Rover lento; mejor a pie' },
-  { max: SUIT.maxSlopeDeg, color: [214, 58, 58], label: `${ROVER.maxSlopeDeg}–${SUIT.maxSlopeDeg}°`, meaning: 'Rover no pasa: solo a pie, en pareja' },
-  { max: 90, color: [112, 30, 92], label: `> ${SUIT.maxSlopeDeg}°`, meaning: 'Intransitable incluso a pie' },
-]
-const classOf = (deg: number) => SLOPE_CLASSES.findIndex((c) => deg < c.max)
-
 export interface SlopeLegend {
   /** Fraction of the patch in each class. */
   share: number[]
   maxDeg: number
 }
 
-function slopeGrid(r: Region, S: number) {
-  const { g, cell, z } = sampler(r)
-  const k = (g - 1) / (S - 1)
-  const out = new Float32Array(S * S)
-  const d = Math.max(1, k) // one grid cell
-  for (let y = 0; y < S; y++)
-    for (let x = 0; x < S; x++) {
-      const fx = x * k
-      const fy = y * k
-      const dx = (z(fx + d, fy) - z(fx - d, fy)) / (2 * cell * d)
-      const dy = (z(fx, fy + d) - z(fx, fy - d)) / (2 * cell * d)
-      out[y * S + x] = (Math.atan(Math.hypot(dx, dy)) * 180) / Math.PI
-    }
-  return out
-}
-
 export function slopeLegend(r: Region): SlopeLegend {
-  const sl = slopeGrid(r, 256)
+  const sl = slopeGrid(heightGrid(r), 256)
   const share = SLOPE_CLASSES.map(() => 0)
   let maxDeg = 0
   for (const v of sl) {
@@ -207,36 +58,14 @@ export function slopeLegend(r: Region): SlopeLegend {
   return { share: share.map((n) => n / sl.length), maxDeg }
 }
 
-/** Slope coloured by what the rover / a suited crew can do, with a light hillshade underneath. */
-export function slopeCanvas(r: Region) {
-  const S = OUT
-  const sl = slopeGrid(r, S)
-  const s = shade(r)
-  const g = REGION_GRID
-  const c = canvas(S)
-  const ctx = c.getContext('2d')!
-  const img = ctx.createImageData(S, S)
-  const k = (g - 1) / (S - 1)
-  for (let y = 0; y < S; y++)
-    for (let x = 0; x < S; x++) {
-      const i = y * S + x
-      const v = sl[i]
-      const ci = classOf(v)
-      // Blend toward the next class near the boundary, so the map reads as a continuous field.
-      const lo = ci > 0 ? SLOPE_CLASSES[ci - 1].max : 0
-      const hi = SLOPE_CLASSES[ci].max
-      const f = Math.min(1, Math.max(0, (v - lo) / Math.max(0.01, Math.min(hi, 40) - lo)))
-      const a = SLOPE_CLASSES[ci].color
-      const b = SLOPE_CLASSES[Math.min(SLOPE_CLASSES.length - 1, ci + 1)].color
-      const t = Math.max(0, f - 0.75) * 1.4
-      const hs = 0.6 + 0.55 * s[Math.min(g - 1, Math.round(y * k)) * g + Math.min(g - 1, Math.round(x * k))]
-      for (let ch = 0; ch < 3; ch++) img.data[i * 4 + ch] = (a[ch] + (b[ch] - a[ch]) * t) * hs
-      // Hatch the ground the rover cannot cross.
-      if (v >= ROVER.maxSlopeDeg && (x + y) % 10 < 2) for (let ch = 0; ch < 3; ch++) img.data[i * 4 + ch] *= 0.45
-      img.data[i * 4 + 3] = 255
-    }
-  ctx.putImageData(img, 0, 0)
-  return c
+/** Relief map of the patch (computed in the worker). */
+export async function topoCanvas(r: Region) {
+  return toCanvas(await runJob<Uint8ClampedArray>({ kind: 'topo', inp: heightGrid(r) }), MAP_SIZE)
+}
+
+/** Slope map of the patch (computed in the worker). */
+export async function slopeCanvas(r: Region) {
+  return toCanvas(await runJob<Uint8ClampedArray>({ kind: 'slope', inp: heightGrid(r) }), MAP_SIZE)
 }
 
 // ---------- optical: NASA Mars Trek WMTS (Viking MDIM 2.1 colour), with offline fallback ----------
@@ -437,42 +266,48 @@ export interface Optical {
   source: 'trek' | 'fallback'
 }
 
-// ---------- ground bake in a Web Worker (falls back to the main thread) ----------
+// ---------- heavy image work in a Web Worker (falls back to the main thread) ----------
 
-let bakeWorker: Worker | null | undefined
-let bakeSeq = 0
-const bakeJobs = new Map<number, { resolve: (o: GroundOutput) => void; inp: GroundInput }>()
+let worker: Worker | null | undefined
+let seq = 0
+const jobs = new Map<number, { resolve: (o: never) => void; job: LayerJob }>()
+
+/** Same work on the main thread: used when workers are unavailable or one fails. */
+function runHere(job: LayerJob): unknown {
+  if (job.kind === 'bake') return bakeGround(job.inp)
+  return job.kind === 'topo' ? topoPixels(job.inp) : slopePixels(job.inp)
+}
 
 function failWorker() {
-  bakeWorker?.terminate()
-  bakeWorker = null
+  worker?.terminate()
+  worker = null
   // Finish whatever was in flight on the main thread.
-  for (const [id, job] of bakeJobs) {
-    bakeJobs.delete(id)
-    job.resolve(bakeGround(job.inp))
+  for (const [id, j] of jobs) {
+    jobs.delete(id)
+    j.resolve(runHere(j.job) as never)
   }
 }
 
-function bakeOffThread(inp: GroundInput): Promise<GroundOutput> {
-  if (bakeWorker === undefined) {
+function runJob<T>(job: LayerJob): Promise<T> {
+  if (worker === undefined) {
     try {
-      bakeWorker = new Worker(new URL('./groundBake.worker.ts', import.meta.url), { type: 'module' })
-      bakeWorker.onmessage = (e: MessageEvent<{ id: number; out?: GroundOutput; error?: string }>) => {
-        const job = bakeJobs.get(e.data.id)
-        if (!job) return
-        bakeJobs.delete(e.data.id)
-        job.resolve(e.data.out ?? bakeGround(job.inp))
+      worker = new Worker(new URL('./layers.worker.ts', import.meta.url), { type: 'module' })
+      worker.onmessage = (e: MessageEvent<{ id: number; out?: unknown; error?: string }>) => {
+        const j = jobs.get(e.data.id)
+        if (!j) return
+        jobs.delete(e.data.id)
+        j.resolve((e.data.out ?? runHere(j.job)) as never)
       }
-      bakeWorker.onerror = failWorker
+      worker.onerror = failWorker
     } catch {
-      bakeWorker = null
+      worker = null
     }
   }
-  if (!bakeWorker) return Promise.resolve(bakeGround(inp))
-  const id = ++bakeSeq
-  return new Promise((resolve) => {
-    bakeJobs.set(id, { resolve, inp })
-    bakeWorker!.postMessage({ id, inp })
+  if (!worker) return Promise.resolve(runHere(job) as T)
+  const id = ++seq
+  return new Promise<T>((resolve) => {
+    jobs.set(id, { resolve: resolve as (o: never) => void, job })
+    worker!.postMessage({ id, job })
   })
 }
 
@@ -480,15 +315,18 @@ export async function opticalCanvas(r: Region): Promise<Optical> {
   const S = GROUND
   const timeout = new Promise<null>((res) => setTimeout(() => res(null), 15000))
   const [base, photo] = await Promise.all([globeCrop(r, S), Promise.race([trekCanvas(r).catch(() => null), timeout])])
-  const out = await bakeOffThread({
-    size: S,
-    sizeM: r.terrain.meta.sizeM,
-    heights: r.terrain.heights,
-    grid: REGION_GRID,
-    base: pixels(base, S),
-    photo: photo ? pixels(photo, S) : undefined,
-    seed: (Math.round(r.lat * 100) * 73856093) ^ (Math.round(r.lon * 100) * 19349663),
-    ex: REGION_EX,
+  const out = await runJob<GroundOutput>({
+    kind: 'bake',
+    inp: {
+      size: S,
+      sizeM: r.terrain.meta.sizeM,
+      heights: r.terrain.heights,
+      grid: REGION_GRID,
+      base: pixels(base, S),
+      photo: photo ? pixels(photo, S) : undefined,
+      seed: (Math.round(r.lat * 100) * 73856093) ^ (Math.round(r.lon * 100) * 19349663),
+      ex: REGION_EX,
+    },
   })
   return { canvas: toCanvas(out.albedo, S), normal: toCanvas(out.normal, S), source: photo ? 'trek' : 'fallback' }
 }

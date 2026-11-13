@@ -94,8 +94,11 @@ export default function App() {
       buildRegion(lat, lon, sizeKm).then(async (r) => {
         if (id !== request.current) return
         setRegion(r)
-        const topo = texture(topoCanvas(r))
-        const base = { optical: topo, topo, slope: texture(slopeCanvas(r)) }
+        // Relief and slope maps are computed in a Web Worker; the terrain appears as soon as they're ready.
+        const [topoC, slopeC] = await Promise.all([topoCanvas(r), slopeCanvas(r)])
+        if (id !== request.current) return
+        const topo = texture(topoC)
+        const base = { optical: topo, topo, slope: texture(slopeC) }
         setTextures(base)
         const o = await opticalCanvas(r)
         if (id !== request.current) return

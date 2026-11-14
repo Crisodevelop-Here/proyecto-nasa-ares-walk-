@@ -1,4 +1,5 @@
 import { useTexture } from '@react-three/drei'
+import { LITE } from '../perf'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { forwardRef, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
@@ -241,9 +242,11 @@ interface Props {
 
 /** The planet. Lives inside the oriented planet group; the focused spot ends on top (+y). */
 export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ view, low = false, onPick, onHover }, ref) {
-  const [map, height, normal] = useTexture(['/globe/mars_4k.jpg', '/globe/mola_height.png', '/globe/mola_normal.jpg'])
+  const [map, height, normal] = useTexture(
+    LITE ? ['/globe/mars_2k.jpg', '/globe/mola_height_lite.png', '/globe/mola_normal_lite.jpg'] : ['/globe/mars_4k.jpg', '/globe/mola_height.png', '/globe/mola_normal.jpg'],
+  )
   map.colorSpace = THREE.SRGBColorSpace
-  map.anisotropy = 16
+  map.anisotropy = LITE ? 4 : 16
   normal.colorSpace = THREE.NoColorSpace
 
   const surface = useRef<THREE.MeshStandardMaterial>(null)
@@ -253,7 +256,7 @@ export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ vie
     let live = true
     let tex: THREE.CanvasTexture | null = null
     const mat = surface.current
-    trekGlobeCanvas()
+    trekGlobeCanvas(LITE ? 2048 : 4096)
       .then((c) => {
         const m = mat
         if (!live || !m) return

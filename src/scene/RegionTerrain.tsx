@@ -1,4 +1,5 @@
 import { Html } from '@react-three/drei'
+import { LITE } from '../perf'
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
@@ -349,8 +350,8 @@ export function RegionTerrain({ region, textures, normalMap, layer, plan, stops,
           transparent
           roughness={1}
           metalness={0}
-          onBeforeCompile={groundDetail}
-          customProgramCacheKey={() => 'region-ground-detail'}
+          onBeforeCompile={LITE ? undefined : groundDetail}
+          customProgramCacheKey={() => (LITE ? 'region-ground-lite' : 'region-ground-detail')}
         />
       </mesh>
       {tracks.map((tr) => (

@@ -8,7 +8,7 @@ Es un globo 3D de Marte en el que se puede hacer clic en **cualquier punto** par
 1. **Globo**: arrastra para girar y usa la rueda para acercar. Al pasar el ratón se ven lat/lon y el lugar (el giro se pausa). Los puntos de colores son misiones de NASA; también hay accesos directos a la izquierda.
 2. **Clic en cualquier punto** → el planeta gira, la cámara baja y aparece el **terreno regional** en 3D (relieve MOLA real). Si cerca trabajó una misión, el área se ajusta a su recorrido (30–120 km); si no, mide 120 × 120 km.
 3. **Panel lateral**:
-   - **Misiones**: recorrido de cada rover sobre el terreno y línea de tiempo de hitos (sol, fecha, qué hizo, instrumentos, hallazgo). Incluye un enlace a las imágenes crudas que tomó el rover ese sol. Al hacer clic en un hito, la cámara vuela a él.
+   - **Misiones**: las **fotos más recientes** que mandó el rover (Perseverance y Curiosity), con visor ampliado; recorrido de cada rover sobre el terreno y línea de tiempo de hitos (sol, fecha, qué hizo, instrumentos, hallazgo). Incluye un enlace a las imágenes crudas que tomó el rover ese sol. Al hacer clic en un hito, la cámara vuela a él.
    - **Objetivos**: objetivo científico del sitio y la lista de datos integrados.
    - **Ruta**: travesía en rover presurizado calculada con A*, con paradas en hitos de misiones o en zonas de contraste de relieve. En Gale aparece **"Bajar a escala EVA"**: el Monte Sharp con HiRISE de 1 m y la ruta a pie.
    - **Seguridad**: radiación según la elevación, simulación de tormenta solar, presión, temperatura, pendientes, zona intransitable y retraso de comunicación.
@@ -53,6 +53,7 @@ GitHub Actions corre `check`, `build` y las pruebas en el navegador en cada camb
 | Textura del globo | NASA Mars Trek WMTS, mosaico Viking MDIM 2.1 (se arma con sus teselas al abrir la app) | Necesita internet; si no responde, se usa `mars_4k.jpg` |
 | Textura global de respaldo (`mars_4k.jpg`) | Solar System Scope, a partir de NASA MOLA/Viking | CC BY 4.0, hay que citarla |
 | Terreno 1 m (`public/terrain/`) | HiRISE DTEEC_001488_1750_001752_1750 + PSP_001488_1750 | Dominio público |
+| Fotos recientes de Perseverance y Curiosity (`src/data/rawPhotos.ts`) | Fuentes públicas de imágenes crudas de NASA/JPL (`mars.nasa.gov`), leídas en vivo al abrir la misión | Necesita internet; si no responde, se muestra un enlace a la galería de la NASA. Esas fuentes rechazan navegadores automáticos, así que la prueba `e2e/photos.spec.ts` usa fotos de ejemplo |
 | Misiones (`src/data/missions.ts`) | Aterrizajes y hitos publicados por NASA/JPL | Los puntos intermedios de los recorridos son **aproximados (±1 km)**; conviene sustituirlos por los archivos MMGIS oficiales |
 | Radiación y ambiente | RAD y REMS de Curiosity, Viking (`src/data/environment.ts`) | Estimaciones de orden de magnitud |
 

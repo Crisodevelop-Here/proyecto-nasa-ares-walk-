@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { arrivalCode, profile, TOUR_CAMERAS, pointIndexAt, type Arrival, type TourCamera, type TourState } from '../tour/tour'
 import type { RoutePlan } from '../types'
 import { locale, t, tr } from '../i18n'
@@ -27,6 +27,9 @@ const hm = (h: number) => {
   return `${H} h ${String(M).padStart(2, '0')} min`
 }
 
+/** Mouse or trackpad (hover works); false on touch screens. */
+const CAN_HOVER = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
+
 export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay, onSeek, onSpeed, onCamera, onExit }: Props) {
   const prof = useMemo(() => profile(plan), [plan])
   const svg = useRef<SVGSVGElement>(null)
@@ -41,6 +44,17 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
   const x = (d: number) => (d / total) * W
   const y = (z: number) => H - ((z - prof.zMin) / (prof.zMax - prof.zMin)) * H
   const path = prof.d.map((d, i) => `${i ? 'L' : 'M'}${x(d).toFixed(1)},${y(prof.z[i]).toFixed(1)}`).join(' ')
+  // The panel hides while the pointer is elsewhere, so the view stays clear, and comes back when the
+  // pointer is over it or a key moves focus into it. It shows for a few seconds at the start so people
+  // know it is there. On touch screens (no hover) it always stays visible.
+  const [hover, setHover] = useState(false)
+  const [focused, setFocused] = useState(false)
+  const [peek, setPeek] = useState(true)
+  useEffect(() => {
+    const id = setTimeout(() => setPeek(false), 3500)
+    return () => clearTimeout(id)
+  }, [])
+  const visible = hover || focused || peek || !CAN_HOVER
   const slopeColor = p.slope < maxSlope * 0.5 ? 'text-emerald-300' : p.slope < maxSlope * 0.8 ? 'text-amber-300' : 'text-rose-300'
 
   const seek = (clientX: number) => {
@@ -77,131 +91,146 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
         </div>
       )}
 
-      <div className="card-in absolute inset-x-2 bottom-2 z-40 rounded-2xl border border-white/10 bg-[#141a2b]/88 p-3 text-white shadow-2xl backdrop-blur sm:inset-x-6 sm:bottom-6 sm:p-4 lg:inset-x-auto lg:left-1/2 lg:w-[880px] lg:-translate-x-1/2">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={onPlay}
-            aria-label={tour.playing ? t('Pausar recorrido', 'Pause traverse') : done ? t('Repetir recorrido', 'Replay traverse') : t('Reproducir recorrido', 'Play traverse')}
-            className="grid h-10 w-10 place-items-center rounded-full bg-orange-400 text-lg font-bold text-slate-900 transition hover:bg-orange-300"
-            title="Espacio"
-          >
-            {tour.playing ? '❚❚' : done ? '↺' : '▶'}
-          </button>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">
-              {mode === 'site' ? t('EVA a pie · Monte Sharp', 'EVA on foot · Mount Sharp') : t('Travesía en rover (tipo Perseverance)', 'Rover traverse (Perseverance-style)')}
-            </p>
-            <p className="truncate text-sm text-white/85">
-              {done ? (
-                t('Recorrido completo A → {stops} → A: {d} en {h} de marcha', 'Traverse complete A → {stops} → A: {d} in {h} of driving', {
-                  stops: arrivals
-                    .filter((a) => !a.last)
-                    .map(arrivalCode)
-                    .join(' → '),
-                  d: km(total),
-                  h: hm(plan.walkHours),
-                })
-              ) : (
-                <>
-                  <b className="font-mono text-orange-300">{prevStop ? arrivalCode(prevStop) : 'A'}</b> {prevStop ? tr(prevStop.station.name) : baseName}{' '}
-                  <span className="text-white/50">→</span> <b className="font-mono text-orange-300">{nextStop ? arrivalCode(nextStop) : 'A'}</b>{' '}
-                  {nextStop ? tr(nextStop.station.name) : baseName}
-                </>
-              )}
-            </p>
-          </div>
-          <div className="flex rounded-lg bg-white/5 p-0.5 text-xs">
-            {TOUR_CAMERAS.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => onCamera(c.id)}
-                className={`rounded-md px-2.5 py-1 font-medium transition ${tour.camera === c.id ? 'bg-white/20 text-white' : 'text-white/60 hover:text-white'}`}
-              >
-                {tr(c.label)}
-              </button>
-            ))}
-          </div>
-          <div className="flex rounded-lg bg-white/5 p-0.5 text-xs">
-            {[0.5, 1, 2, 4].map((s) => (
-              <button
-                key={s}
-                type="button"
-                aria-label={t('Velocidad ×{s}', 'Speed ×{s}', { s })}
-                onClick={() => onSpeed(s)}
-                className={`rounded-md px-2 py-1 font-mono transition ${tour.speed === s ? 'bg-white/20 text-white' : 'text-white/60 hover:text-white'}`}
-              >
-                ×{s}
-              </button>
-            ))}
-          </div>
-          <button type="button" onClick={onExit} className="rounded-lg px-2.5 py-1.5 text-xs text-white/70 ring-1 ring-white/15 transition hover:bg-white/10" title="Esc">
-            {t('Salir', 'Exit')}
-          </button>
-        </div>
-
-        <div className="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-5">
-          <Stat label={t('recorrido', 'travelled')} value={`${km(tour.d)} / ${km(total)}`} />
-          <Stat label={t('elevación', 'elevation')} value={`${Math.round(p.z).toLocaleString(locale())} m`} />
-          <Stat label={t('pendiente', 'slope')} value={`${p.slope.toFixed(1)}°`} className={slopeColor} />
-          <Stat label={t('reloj de misión', 'mission clock')} value={hm(p.t)} />
-          <Stat
-            label={
-              tour.hold > 0
-                ? t('trabajando en {c}', 'working at {c}', { c: prevStop ? arrivalCode(prevStop) : 'A' })
-                : t('hasta {c}', 'to {c}', { c: nextStop ? arrivalCode(nextStop) : 'A' })
-            }
-            value={tour.hold > 0 ? '⛏' : nextStop ? km(Math.max(0, nextStop.d - tour.d)) : '—'}
-            className="hidden sm:block"
-          />
-        </div>
-
-        {/* Elevation profile: click or drag to move along the route */}
-        <svg
-          ref={svg}
-          viewBox={`0 0 ${W} ${H + 14}`}
-          preserveAspectRatio="none"
-          className="mt-3 h-20 w-full cursor-pointer touch-none select-none sm:h-24"
-          onPointerDown={(e) => {
-            ;(e.target as Element).setPointerCapture?.(e.pointerId)
-            seek(e.clientX)
-          }}
-          onPointerMove={(e) => e.buttons && seek(e.clientX)}
+      <div
+        className="card-in absolute inset-x-2 bottom-2 z-40 sm:inset-x-6 sm:bottom-6 lg:inset-x-auto lg:left-1/2 lg:w-[880px] lg:-translate-x-1/2"
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        onFocus={() => setFocused(true)}
+        onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setFocused(false)}
+      >
+        {!visible && (
+          <p className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#141a2b]/70 px-3 py-1 text-xs text-white/80 backdrop-blur">
+            ▲ {t('Pasa el puntero aquí para ver el panel del recorrido', 'Hover here to show the traverse panel')}
+          </p>
+        )}
+        <div
+          className={`rounded-2xl border border-white/10 bg-[#141a2b]/88 p-3 text-white shadow-2xl backdrop-blur transition-opacity duration-300 sm:p-4 ${visible ? 'opacity-100' : 'opacity-0'}`}
         >
-          <defs>
-            <linearGradient id="prof" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" stopColor="#fb923c" stopOpacity="0.55" />
-              <stop offset="1" stopColor="#fb923c" stopOpacity="0.04" />
-            </linearGradient>
-            <clipPath id="travelled">
-              <rect x="0" y="0" width={x(tour.d)} height={H} />
-            </clipPath>
-          </defs>
-          <path d={`${path} L${W},${H} L0,${H} Z`} fill="rgba(255,255,255,0.06)" />
-          <path d={path} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
-          <g clipPath="url(#travelled)">
-            <path d={`${path} L${W},${H} L0,${H} Z`} fill="url(#prof)" />
-            <path d={path} fill="none" stroke="#fb923c" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-          </g>
-          {arrivals.map((a) => (
-            <g key={a.n}>
-              <line x1={x(a.d)} x2={x(a.d)} y1={0} y2={H} stroke="rgba(253,230,138,0.35)" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-              <text x={Math.min(W - 6, Math.max(6, x(a.d)))} y={H + 12} textAnchor="middle" fontSize="11" fill="rgba(255,255,255,0.6)">
-                {arrivalCode(a)}
-              </text>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onPlay}
+              aria-label={tour.playing ? t('Pausar recorrido', 'Pause traverse') : done ? t('Repetir recorrido', 'Replay traverse') : t('Reproducir recorrido', 'Play traverse')}
+              className="grid h-10 w-10 place-items-center rounded-full bg-orange-400 text-lg font-bold text-slate-900 transition hover:bg-orange-300"
+              title="Espacio"
+            >
+              {tour.playing ? '❚❚' : done ? '↺' : '▶'}
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">
+                {mode === 'site' ? t('EVA a pie · Monte Sharp', 'EVA on foot · Mount Sharp') : t('Travesía en rover (tipo Perseverance)', 'Rover traverse (Perseverance-style)')}
+              </p>
+              <p className="truncate text-sm text-white/85">
+                {done ? (
+                  t('Recorrido completo A → {stops} → A: {d} en {h} de marcha', 'Traverse complete A → {stops} → A: {d} in {h} of driving', {
+                    stops: arrivals
+                      .filter((a) => !a.last)
+                      .map(arrivalCode)
+                      .join(' → '),
+                    d: km(total),
+                    h: hm(plan.walkHours),
+                  })
+                ) : (
+                  <>
+                    <b className="font-mono text-orange-300">{prevStop ? arrivalCode(prevStop) : 'A'}</b> {prevStop ? tr(prevStop.station.name) : baseName}{' '}
+                    <span className="text-white/50">→</span> <b className="font-mono text-orange-300">{nextStop ? arrivalCode(nextStop) : 'A'}</b>{' '}
+                    {nextStop ? tr(nextStop.station.name) : baseName}
+                  </>
+                )}
+              </p>
+            </div>
+            <div className="flex rounded-lg bg-white/5 p-0.5 text-xs">
+              {TOUR_CAMERAS.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => onCamera(c.id)}
+                  className={`rounded-md px-2.5 py-1 font-medium transition ${tour.camera === c.id ? 'bg-white/20 text-white' : 'text-white/60 hover:text-white'}`}
+                >
+                  {tr(c.label)}
+                </button>
+              ))}
+            </div>
+            <div className="flex rounded-lg bg-white/5 p-0.5 text-xs">
+              {[0.5, 1, 2, 4].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  aria-label={t('Velocidad ×{s}', 'Speed ×{s}', { s })}
+                  onClick={() => onSpeed(s)}
+                  className={`rounded-md px-2 py-1 font-mono transition ${tour.speed === s ? 'bg-white/20 text-white' : 'text-white/60 hover:text-white'}`}
+                >
+                  ×{s}
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={onExit} className="rounded-lg px-2.5 py-1.5 text-xs text-white/70 ring-1 ring-white/15 transition hover:bg-white/10" title="Esc">
+              {t('Salir', 'Exit')}
+            </button>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-5">
+            <Stat label={t('recorrido', 'travelled')} value={`${km(tour.d)} / ${km(total)}`} />
+            <Stat label={t('elevación', 'elevation')} value={`${Math.round(p.z).toLocaleString(locale())} m`} />
+            <Stat label={t('pendiente', 'slope')} value={`${p.slope.toFixed(1)}°`} className={slopeColor} />
+            <Stat label={t('reloj de misión', 'mission clock')} value={hm(p.t)} />
+            <Stat
+              label={
+                tour.hold > 0
+                  ? t('trabajando en {c}', 'working at {c}', { c: prevStop ? arrivalCode(prevStop) : 'A' })
+                  : t('hasta {c}', 'to {c}', { c: nextStop ? arrivalCode(nextStop) : 'A' })
+              }
+              value={tour.hold > 0 ? '⛏' : nextStop ? km(Math.max(0, nextStop.d - tour.d)) : '—'}
+              className="hidden sm:block"
+            />
+          </div>
+
+          {/* Elevation profile: click or drag to move along the route */}
+          <svg
+            ref={svg}
+            viewBox={`0 0 ${W} ${H + 14}`}
+            preserveAspectRatio="none"
+            className="mt-3 h-20 w-full cursor-pointer touch-none select-none sm:h-24"
+            onPointerDown={(e) => {
+              ;(e.target as Element).setPointerCapture?.(e.pointerId)
+              seek(e.clientX)
+            }}
+            onPointerMove={(e) => e.buttons && seek(e.clientX)}
+          >
+            <defs>
+              <linearGradient id="prof" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stopColor="#fb923c" stopOpacity="0.55" />
+                <stop offset="1" stopColor="#fb923c" stopOpacity="0.04" />
+              </linearGradient>
+              <clipPath id="travelled">
+                <rect x="0" y="0" width={x(tour.d)} height={H} />
+              </clipPath>
+            </defs>
+            <path d={`${path} L${W},${H} L0,${H} Z`} fill="rgba(255,255,255,0.06)" />
+            <path d={path} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+            <g clipPath="url(#travelled)">
+              <path d={`${path} L${W},${H} L0,${H} Z`} fill="url(#prof)" />
+              <path d={path} fill="none" stroke="#fb923c" strokeWidth="2" vectorEffect="non-scaling-stroke" />
             </g>
-          ))}
-          <text x={6} y={H + 12} textAnchor="middle" fontSize="11" fill="rgba(255,255,255,0.6)">
-            A
-          </text>
-          <line x1={x(tour.d)} x2={x(tour.d)} y1={0} y2={H} stroke="#fff" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-          <circle cx={x(tour.d)} cy={y(p.z)} r="4" fill="#fff" stroke="#fb923c" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-        </svg>
-        <div className="mt-1 flex justify-between text-[10px] text-white/40">
-          <span>{Math.round(prof.zMin).toLocaleString('es-ES')} m</span>
-          <span>Perfil de elevación (MOLA{mode === 'site' ? ' + HiRISE 1 m' : ''}) · clic para moverte · Espacio pausa · C cámara</span>
-          <span>{Math.round(prof.zMax).toLocaleString('es-ES')} m</span>
+            {arrivals.map((a) => (
+              <g key={a.n}>
+                <line x1={x(a.d)} x2={x(a.d)} y1={0} y2={H} stroke="rgba(253,230,138,0.35)" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+                <text x={Math.min(W - 6, Math.max(6, x(a.d)))} y={H + 12} textAnchor="middle" fontSize="11" fill="rgba(255,255,255,0.6)">
+                  {arrivalCode(a)}
+                </text>
+              </g>
+            ))}
+            <text x={6} y={H + 12} textAnchor="middle" fontSize="11" fill="rgba(255,255,255,0.6)">
+              A
+            </text>
+            <line x1={x(tour.d)} x2={x(tour.d)} y1={0} y2={H} stroke="#fff" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+            <circle cx={x(tour.d)} cy={y(p.z)} r="4" fill="#fff" stroke="#fb923c" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <div className="mt-1 flex justify-between text-[10px] text-white/40">
+            <span>{Math.round(prof.zMin).toLocaleString('es-ES')} m</span>
+            <span>Perfil de elevación (MOLA{mode === 'site' ? ' + HiRISE 1 m' : ''}) · clic para moverte · Espacio pausa · C cámara</span>
+            <span>{Math.round(prof.zMax).toLocaleString('es-ES')} m</span>
+          </div>
         </div>
       </div>
     </>

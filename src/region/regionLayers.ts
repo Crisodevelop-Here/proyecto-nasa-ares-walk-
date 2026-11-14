@@ -1,3 +1,5 @@
+import { GEOLOGY_LAYER } from '../data/geology'
+import { LITE } from '../perf'
 import { wrapLon } from '../scene/mars'
 import { bakeGround, type GroundOutput } from './groundBake'
 import type { LayerJob } from './layers.worker'
@@ -6,11 +8,12 @@ import { REGION_EX, REGION_GRID, uvToLatLon, type Region } from './regionTerrain
 
 export { RELIEF_RAMP, SLOPE_CLASSES, contourInterval } from './mapLayers'
 
-export type RegionLayer = 'optical' | 'topo' | 'slope'
+export type RegionLayer = 'optical' | 'topo' | 'slope' | 'geology'
 export const REGION_LAYERS: { id: RegionLayer; label: string; data: string }[] = [
   { id: 'optical', label: 'Óptica', data: 'Imagen' },
   { id: 'topo', label: 'Relieve', data: 'Topografía' },
   { id: 'slope', label: 'Pendiente', data: 'Peligro' },
+  { id: 'geology', label: 'Geología', data: 'Geología' },
 ]
 
 const OUT = 1024
@@ -68,10 +71,9 @@ export async function slopeCanvas(r: Region) {
   return toCanvas(await runJob<Uint8ClampedArray>({ kind: 'slope', inp: heightGrid(r) }), MAP_SIZE)
 }
 
-// ---------- optical: NASA Mars Trek WMTS (Viking MDIM 2.1 colour), with offline fallback ----------
+// ---------- NASA Mars Trek WMTS layers: Viking MDIM 2.1 colour (optical) and USGS SIM 3292 (geology) ----------
 
 const TREK_LAYER = 'Mars_Viking_MDIM21_ClrMosaic_global_232m'
-const TREK_CAPS = `https://trek.nasa.gov/tiles/Mars/EQ/${TREK_LAYER}/1.0.0/WMTSCapabilities.xml`
 
 interface Matrix {
   id: string
@@ -79,10 +81,14 @@ interface Matrix {
   h: number
   tile: number
 }
-let caps: Promise<{ template: string; matrices: Matrix[] }> | null = null
+type Caps = { template: string; matrices: Matrix[] }
+const capsCache = new Map<string, Promise<Caps>>()
 
-function loadCaps() {
-  caps ??= fetch(TREK_CAPS)
+/** Tile URL template and zoom levels of a Mars Trek layer (`ext` = tile format if the template is missing). */
+function loadCaps(layer = TREK_LAYER, ext = 'jpg') {
+  const hit = capsCache.get(layer)
+  if (hit) return hit
+  const caps: Promise<Caps> = fetch(`https://trek.nasa.gov/tiles/Mars/EQ/${layer}/1.0.0/WMTSCapabilities.xml`)
     .then((r) => {
       if (!r.ok) throw new Error(`caps ${r.status}`)
       return r.text()
@@ -91,7 +97,7 @@ function loadCaps() {
       const doc = new DOMParser().parseFromString(xml, 'application/xml')
       const all = (el: Element | Document, name: string) => Array.from(el.getElementsByTagNameNS('*', name))
       const res = all(doc, 'ResourceURL')[0]?.getAttribute('template')
-      const template = res ?? `https://trek.nasa.gov/tiles/Mars/EQ/${TREK_LAYER}/1.0.0/default/default028mm/{TileMatrix}/{TileRow}/{TileCol}.jpg`
+      const template = res ?? `https://trek.nasa.gov/tiles/Mars/EQ/${layer}/1.0.0/default/default028mm/{TileMatrix}/{TileRow}/{TileCol}.${ext}`
       const set = all(doc, 'TileMatrixSet').find((s) => all(s, 'TileMatrix').length > 0)
       const matrices = (set ? all(set, 'TileMatrix') : []).map((m) => ({
         id: all(m, 'Identifier')[0]?.textContent?.trim() ?? '',
@@ -102,9 +108,8 @@ function loadCaps() {
       if (!matrices.length) throw new Error('no matrices')
       return { template, matrices }
     })
-  caps.catch(() => {
-    caps = null
-  })
+  capsCache.set(layer, caps)
+  caps.catch(() => capsCache.delete(layer))
   return caps
 }
 
@@ -117,8 +122,8 @@ const loadImage = (src: string) =>
     img.src = src
   })
 
-async function trekCanvas(r: Region) {
-  const { template, matrices } = await loadCaps()
+async function trekCanvas(r: Region, layer = TREK_LAYER, ext = 'jpg') {
+  const { template, matrices } = await loadCaps(layer, ext)
   const nw = uvToLatLon(r, { u: 0, v: 0 })
   const se = uvToLatLon(r, { u: 1, v: 1 })
   const lonW = nw.lon
@@ -214,7 +219,8 @@ export function trekGlobeCanvas(maxWidth = 4096): Promise<HTMLCanvasElement> {
 }
 
 let globeImg: Promise<HTMLImageElement> | null = null
-const GROUND = 1536
+// Baked ground photo + normal map size (light mode: 1024 px, about half the memory).
+const GROUND = LITE ? 1024 : 1536
 
 /** The texture the globe is wearing: the Mars Trek mosaic when it loads, else the bundled one. */
 async function globeSource(): Promise<HTMLImageElement | HTMLCanvasElement> {
@@ -329,4 +335,20 @@ export async function opticalCanvas(r: Region): Promise<Optical> {
     },
   })
   return { canvas: toCanvas(out.albedo, S), normal: toCanvas(out.normal, S), source: photo ? 'trek' : 'fallback' }
+}
+
+/**
+ * USGS geologic map (SIM 3292, via Mars Trek) over the patch, drawn on top of the relief map so hills and
+ * contours still show through the unit colours. Rejects if Trek is unreachable; callers keep the relief map.
+ */
+export async function geologyCanvas(r: Region, relief: HTMLCanvasElement): Promise<HTMLCanvasElement> {
+  const geo = await trekCanvas(r, GEOLOGY_LAYER, 'png')
+  const c = canvas()
+  const ctx = c.getContext('2d')!
+  ctx.drawImage(relief, 0, 0, OUT, OUT)
+  ctx.globalAlpha = 0.8
+  // Unit boundaries are crisp polygons: keep their edges sharp when scaled up.
+  ctx.imageSmoothingEnabled = false
+  ctx.drawImage(geo, 0, 0)
+  return c
 }

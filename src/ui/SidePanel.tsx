@@ -1,13 +1,17 @@
 import { useState } from 'react'
 import { COMMS_DELAY_MIN, doseAtElevation, pressureAtElevation, ROVER, SUIT, tempRange } from '../data/environment'
 import { distanceKm, MISSIONS, type Milestone, type Mission } from '../data/missions'
+import { ROVERS_WITH_FEED, type RoverWithFeed } from '../data/rawPhotos'
 import type { Optical } from '../region/regionLayers'
 import type { Region } from '../region/regionTerrain'
 import type { View } from '../scene/MarsGlobe'
 import { formatLatLon, PLACES } from '../scene/mars'
 import type { RoutePlan, Station } from '../types'
-import { locale, t, tr } from '../i18n'
+import { locale, t, tr, useLang } from '../i18n'
 import { LangToggle } from './GlobeOverlay'
+import { RoverPhotos } from './RoverPhotos'
+import type { GeologyState } from './LayerLegend'
+import { plainUnit } from '../data/geology'
 
 export type Tab = 'missions' | 'objectives' | 'route' | 'safety'
 const TABS: { id: Tab; label: () => string }[] = [
@@ -119,6 +123,7 @@ interface Props {
   focus: { lat: number; lon: number }
   region: Region | null
   optical: Optical | null
+  geology: GeologyState
   plan: RoutePlan | null
   stops: Station[]
   sitePlan: RoutePlan | null
@@ -261,6 +266,7 @@ function MissionsTab({ focus, missions, onMilestone }: Props) {
             {m.distanceKm ? t(' · {d} km recorridos', ' · {d} km driven', { d: fmt(m.distanceKm, m.distanceKm < 1 ? 1 : 0) }) : ''}
           </p>
           <p className="mt-1.5 text-white/75">{tr(m.summary)}</p>
+          {!m.ended && ROVERS_WITH_FEED.includes(m.id) && <RoverPhotos rover={m.id as RoverWithFeed} name={m.name} />}
           <ol className="mt-3 space-y-2 border-l border-white/15 pl-4">
             {m.milestones.map((s) => (
               <li key={s.sol} className="relative">
@@ -297,7 +303,8 @@ function MissionsTab({ focus, missions, onMilestone }: Props) {
   )
 }
 
-function ObjectivesTab({ view, focus, region, optical, missions }: Props) {
+function ObjectivesTab({ view, focus, region, optical, geology, missions }: Props) {
+  const lang = useLang()
   const curated = missions.find((m) => MISSION_OBJECTIVE[m.id] && distanceKm(focus.lat, focus.lon, m.lat, m.lon) < 150)
   const obj =
     view === 'site'
@@ -320,6 +327,13 @@ function ObjectivesTab({ view, focus, region, optical, missions }: Props) {
       src: region?.source === 'mola32' ? t('MOLA MEGDR, 32 px/° (~1,8 km/px), MGS', 'MOLA MEGDR, 32 px/° (~1.8 km/px), MGS') : 'MOLA MEGDR 4 px/°, MGS',
     },
     { type: t('Pendiente / obstáculos', 'Slope / obstacles'), src: t('Derivado del relieve MOLA', 'Derived from MOLA relief') },
+    {
+      type: t('Geológico', 'Geologic'),
+      src:
+        geology.unit && typeof geology.unit === 'object'
+          ? t('Mapa USGS–NASA SIM 3292 · aquí: {u}', 'USGS–NASA map SIM 3292 · here: {u}', { u: plainUnit(geology.unit.name, lang).kind.toLowerCase() })
+          : t('Mapa geológico USGS–NASA SIM 3292 (vía Mars Trek)', 'USGS–NASA geologic map SIM 3292 (via Mars Trek)'),
+    },
     { type: t('Radiación', 'Radiation'), src: t('Modelo anclado a RAD (Curiosity), según la columna de atmósfera', 'Model anchored to RAD (Curiosity), by atmospheric column') },
     { type: t('Atmosférico', 'Atmospheric'), src: t('Presión y temperatura: REMS (Curiosity) y Viking', 'Pressure and temperature: REMS (Curiosity) and Viking') },
     { type: t('Histórico', 'Historical'), src: t('Recorridos e hitos de rovers y landers de NASA', 'Traverses and milestones of NASA rovers and landers') },

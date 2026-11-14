@@ -3,7 +3,8 @@ import * as THREE from 'three'
 import { doseAtElevation, ROVER } from './data/environment'
 import { distanceKm, MISSIONS, type Milestone, type Mission } from './data/missions'
 import { STATION_BY_ID } from './data/stations'
-import { opticalCanvas, REGION_LAYERS, slopeCanvas, topoCanvas, type Optical, type RegionLayer } from './region/regionLayers'
+import { fetchGeoUnit } from './data/geology'
+import { geologyCanvas, opticalCanvas, REGION_LAYERS, slopeCanvas, topoCanvas, type Optical, type RegionLayer } from './region/regionLayers'
 import { buildRegion, frameFor, habitatFor, insidePatch, latLonToUV, missionStops, terrainStops, type Region } from './region/regionTerrain'
 import { planRoute } from './route/plan'
 import type { View } from './scene/MarsGlobe'
@@ -16,11 +17,12 @@ import { placeName, SidePanel, type Tab } from './ui/SidePanel'
 import { Traveler } from './scene/Traveler'
 import { arrivals, newTour, TOUR_CAMERAS, type TourCamera, type TourState } from './tour/tour'
 import { TourHud } from './ui/TourHud'
-import { LayerLegend } from './ui/LayerLegend'
+import { LayerLegend, type GeologyState } from './ui/LayerLegend'
 import { Credits, GlobeOverlay, LangToggle } from './ui/GlobeOverlay'
 import { t, tr, useLang } from './i18n'
 import { Loader } from './ui/Loader'
 import { SUIT } from './data/environment'
+import { LITE } from './perf'
 
 const SITE_STOPS = ['boxwork', 'contact', 'mounds']
 /** A click closer than this to a mission's site, track or milestone opens that mission's traverse. */
@@ -31,7 +33,7 @@ const regionTextures: THREE.Texture[] = []
 function texture(c: HTMLCanvasElement) {
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
-  t.anisotropy = 8
+  t.anisotropy = LITE ? 2 : 8
   regionTextures.push(t)
   return t
 }
@@ -46,6 +48,7 @@ export default function App() {
   const [textures, setTextures] = useState<Record<RegionLayer, THREE.Texture> | null>(null)
   const [normalMap, setNormalMap] = useState<THREE.Texture | null>(null)
   const [layer, setLayer] = useState<RegionLayer>('optical')
+  const [geology, setGeology] = useState<GeologyState>({ unit: 'loading', map: 'loading' })
   const [siteLayer, setSiteLayer] = useState<SiteLayer>('ortho')
   const [tab, setTab] = useState<Tab>('missions')
   const [solarStorm, setSolarStorm] = useState(false)
@@ -89,6 +92,12 @@ export default function App() {
       setTextures(null)
       setNormalMap(null)
       regionTextures.splice(0).forEach((t) => t.dispose())
+      setGeology({ unit: 'loading', map: 'loading' })
+      // Geologic unit at the centre of the patch (USGS SIM 3292 via Mars Trek); needs internet.
+      fetchGeoUnit(lat, lon).then(
+        (unit) => id === request.current && setGeology((g) => ({ ...g, unit })),
+        () => id === request.current && setGeology((g) => ({ ...g, unit: 'failed' })),
+      )
       fly()
       document.body.style.cursor = ''
       buildRegion(lat, lon, sizeKm).then(async (r) => {
@@ -98,12 +107,20 @@ export default function App() {
         const [topoC, slopeC] = await Promise.all([topoCanvas(r), slopeCanvas(r)])
         if (id !== request.current) return
         const topo = texture(topoC)
-        const base = { optical: topo, topo, slope: texture(slopeC) }
-        setTextures(base)
+        // Until their images arrive, the photo and geology layers show the relief map.
+        setTextures({ optical: topo, topo, slope: texture(slopeC), geology: topo })
+        geologyCanvas(r, topoC).then(
+          (c) => {
+            if (id !== request.current) return
+            setTextures((prev) => prev && { ...prev, geology: texture(c) })
+            setGeology((g) => ({ ...g, map: 'ok' }))
+          },
+          () => id === request.current && setGeology((g) => ({ ...g, map: 'failed' })),
+        )
         const o = await opticalCanvas(r)
         if (id !== request.current) return
         setOptical(o)
-        setTextures({ ...base, optical: texture(o.canvas) })
+        setTextures((prev) => prev && { ...prev, optical: texture(o.canvas) })
         const n = texture(o.normal)
         n.colorSpace = THREE.NoColorSpace
         setNormalMap(n)
@@ -263,10 +280,11 @@ export default function App() {
       else if (e.key === 'f' || e.key === 'F') {
         if (document.fullscreenElement) document.exitFullscreen()
         else document.documentElement.requestFullscreen().catch(() => {})
-      } else if (['1', '2', '3'].includes(e.key)) {
+      } else if (['1', '2', '3', '4'].includes(e.key)) {
         const i = Number(e.key) - 1
-        if (view === 'site') setSiteLayer(LAYERS[i].id)
-        else setLayer(REGION_LAYERS[i].id)
+        if (view === 'site') {
+          if (LAYERS[i]) setSiteLayer(LAYERS[i].id)
+        } else if (REGION_LAYERS[i]) setLayer(REGION_LAYERS[i].id)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -283,6 +301,7 @@ export default function App() {
         focus={focus}
         shot={shot}
         siteTerrain={siteTerrain}
+        siteWanted={view === 'site' || siteAvailable}
         sitePlan={sitePlan}
         siteY={siteY}
         siteLayer={siteLayer}
@@ -347,7 +366,7 @@ export default function App() {
           <span className="text-base">▶</span> {view === 'site' ? t('Recorrer la EVA a pie', 'Walk the EVA route') : t('Recorrer la ruta en rover', 'Drive the rover route')}
         </button>
       )}
-      {view === 'region' && region && !tourUI && <LayerLegend region={region} layer={layer} />}
+      {view === 'region' && region && !tourUI && <LayerLegend region={region} layer={layer} geology={geology} />}
       {tourUI && tourPlan && (
         <TourHud
           mode={view === 'site' ? 'site' : 'region'}
@@ -372,6 +391,7 @@ export default function App() {
           focus={view === 'site' ? SITE : focus}
           region={region}
           optical={optical}
+          geology={geology}
           plan={plan}
           stops={stops}
           sitePlan={sitePlan}

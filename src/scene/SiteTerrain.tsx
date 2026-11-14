@@ -1,4 +1,5 @@
 import { Html, useTexture } from '@react-three/drei'
+import { LITE } from '../perf'
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
@@ -19,7 +20,7 @@ export const LAYERS: { id: SiteLayer; label: string }[] = [
 
 /** Vertical exaggeration of the HiRISE terrain (same default as martian-map). */
 export const SITE_EX = 1.5
-const SEG = 511
+const SEG = LITE ? 255 : 511
 /** Terrain group scale: geo units (K per metre) → globe scene units. */
 export const SITE_SCALE = UNITS_PER_M / K
 
@@ -77,10 +78,14 @@ interface Props {
 }
 
 export function SiteTerrain({ terrain: t, plan, layer, active, siteY, touring = false }: Props) {
-  const tex = useTexture({ ortho: '/terrain/ortho.jpg', color: '/terrain/color.jpg', slope: '/terrain/slope.jpg' })
+  const tex = useTexture(
+    LITE
+      ? { ortho: '/terrain/ortho_lite.jpg', color: '/terrain/color_lite.jpg', slope: '/terrain/slope_lite.jpg' }
+      : { ortho: '/terrain/ortho.jpg', color: '/terrain/color.jpg', slope: '/terrain/slope.jpg' },
+  )
   for (const v of Object.values(tex)) {
     v.colorSpace = THREE.SRGBColorSpace
-    v.anisotropy = 16
+    v.anisotropy = LITE ? 4 : 16
   }
   const alpha = useMemo(edgeMask, [])
   const mat = useRef<THREE.MeshStandardMaterial>(null)

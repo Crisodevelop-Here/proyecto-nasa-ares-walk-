@@ -1,4 +1,5 @@
 import { OrbitControls, PerformanceMonitor } from '@react-three/drei'
+import { LITE } from '../perf'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import * as THREE from 'three'
@@ -17,11 +18,8 @@ const Y = new THREE.Vector3(0, 1, 0)
 const TILT = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (-25.19 * Math.PI) / 180)
 /** Spin speed on the globe (rad/s): one turn in about 100 s. */
 const SPIN_SPEED = 0.063
-/**
- * Light mode for very weak computers (and test machines without a GPU): open the app with `?lite`.
- * Same features; lower resolution, simpler globe mesh and no antialiasing from the first frame.
- */
-const LITE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('lite')
+// Light mode (4 GB of RAM or less, or `?lite`): lower resolution, simpler globe mesh and no antialiasing
+// from the first frame. See src/perf.ts.
 /** People who ask the system for less motion get a still globe (they can still drag it). */
 const REDUCED_MOTION = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 const SUN = new THREE.Vector3(0.78, 0.48, 0.4).normalize()
@@ -224,6 +222,8 @@ interface StageProps {
   focus: { lat: number; lon: number } | null
   shot: Shot
   siteTerrain: Terrain | null
+  /** The HiRISE site is on screen or one click away (in light mode it loads only then). */
+  siteWanted: boolean
   sitePlan: RoutePlan | null
   siteY: number
   siteLayer: SiteLayer
@@ -238,7 +238,24 @@ interface StageProps {
   children?: ReactNode
 }
 
-export function Stage({ view, focus, shot, siteTerrain, sitePlan, siteY, siteLayer, touring, regionY, regionSpan, labels, tour, onPick, onHover, children }: StageProps) {
+export function Stage({
+  view,
+  focus,
+  shot,
+  siteTerrain,
+  siteWanted,
+  sitePlan,
+  siteY,
+  siteLayer,
+  touring,
+  regionY,
+  regionSpan,
+  labels,
+  tour,
+  onPick,
+  onHover,
+  children,
+}: StageProps) {
   const planet = useRef<THREE.Group>(null)
   const hovering = useRef(false)
   const hover = (p: { lat: number; lon: number } | null) => {
@@ -288,7 +305,7 @@ export function Stage({ view, focus, shot, siteTerrain, sitePlan, siteY, siteLay
         <group quaternion={TILT}>
           <Moons view={view} />
         </group>
-        {siteTerrain && <SiteTerrain terrain={siteTerrain} plan={sitePlan} layer={siteLayer} active={view === 'site'} siteY={siteY} touring={touring} />}
+        {siteTerrain && (!LITE || siteWanted) && <SiteTerrain terrain={siteTerrain} plan={sitePlan} layer={siteLayer} active={view === 'site'} siteY={siteY} touring={touring} />}
         {children}
       </Suspense>
       <Director view={view} focus={focus} shot={shot} siteY={siteY} regionY={regionY} regionSpan={regionSpan} planet={planet} labels={labels} hovering={hovering} tour={tour} />

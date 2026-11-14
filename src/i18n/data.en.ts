@@ -211,6 +211,7 @@ export const DATA_EN: Record<string, string> = {
 
   // ---- Map layers and legends ----
   Óptica: 'Optical',
+  Geología: 'Geology',
   Relieve: 'Relief',
   Pendiente: 'Slope',
   'Imagen real': 'Real image',

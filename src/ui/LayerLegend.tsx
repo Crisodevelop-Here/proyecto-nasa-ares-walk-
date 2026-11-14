@@ -1,19 +1,29 @@
 import { useMemo } from 'react'
 import { RELIEF_RAMP, reliefLegend, slopeLegend, SLOPE_CLASSES, type RegionLayer } from '../region/regionLayers'
 import type { Region } from '../region/regionTerrain'
-import { locale, t, tr } from '../i18n'
+import { GEOLOGY_SOURCE, plainUnit, type GeoUnit } from '../data/geology'
+import { locale, t, tr, useLang } from '../i18n'
+
+/** Geology layer status: the unit under the patch centre and whether the map tiles loaded. */
+export interface GeologyState {
+  unit: GeoUnit | null | 'loading' | 'failed'
+  map: 'loading' | 'ok' | 'failed'
+}
 
 const rgb = (c: [number, number, number]) => `rgb(${c.map(Math.round).join(',')})`
 const m = (v: number) => `${Math.round(v).toLocaleString(locale())} m`
 
 /** Explains the active map layer: what the colours mean and what it is for. */
-export function LayerLegend({ region, layer }: { region: Region; layer: RegionLayer }) {
+export function LayerLegend({ region, layer, geology }: { region: Region; layer: RegionLayer; geology: GeologyState }) {
+  const lang = useLang()
   const relief = useMemo(() => reliefLegend(region), [region])
   const slope = useMemo(() => slopeLegend(region), [region])
   if (layer === 'optical') return null
   return (
     <div className="card-in absolute bottom-16 left-2 w-[min(92vw,330px)] rounded-2xl border border-white/10 bg-[#141a2b]/88 p-3.5 text-white shadow-2xl backdrop-blur sm:left-6">
-      {layer === 'topo' ? (
+      {layer === 'geology' ? (
+        <GeologyLegend geology={geology} lang={lang} />
+      ) : layer === 'topo' ? (
         <>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">{t('Relieve · mapa topográfico', 'Relief · topographic map')}</p>
           <p className="mt-1 text-xs text-white/70">
@@ -68,5 +78,60 @@ export function LayerLegend({ region, layer }: { region: Region; layer: RegionLa
         </>
       )}
     </div>
+  )
+}
+
+function GeologyLegend({ geology, lang }: { geology: GeologyState; lang: 'es' | 'en' }) {
+  const { unit, map } = geology
+  const plain = unit && typeof unit === 'object' ? plainUnit(unit.name, lang) : null
+  return (
+    <>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">
+        {t('Geología · ¿de qué está hecho el suelo?', 'Geology · what is the ground made of?')}
+      </p>
+      <p className="mt-1 text-xs text-white/70">
+        {t(
+          'Mapa oficial de la USGS y la NASA. Cada color es un tipo de terreno distinto: lava, cráteres, llanuras, hielo… y cada uno se formó en una época diferente de Marte.',
+          'Official USGS–NASA map. Each colour is a different kind of ground: lava, craters, plains, ice… and each formed in a different age of Mars.',
+        )}
+      </p>
+      <div className="mt-2.5 rounded-xl bg-white/5 p-2.5" aria-live="polite">
+        <p className="text-[11px] uppercase tracking-wider text-white/50">{t('En el centro de esta zona', 'At the centre of this area')}</p>
+        {unit === 'loading' ? (
+          <p className="mt-0.5 text-xs text-white/60">{t('Consultando el mapa de la USGS…', 'Checking the USGS map…')}</p>
+        ) : unit === 'failed' ? (
+          <p className="mt-0.5 text-xs text-white/60">{t('No se pudo consultar (hace falta internet).', 'Could not check it (internet is needed).')}</p>
+        ) : !unit || !plain ? (
+          <p className="mt-0.5 text-xs text-white/60">{t('El mapa no tiene un tipo de terreno en este punto.', 'The map has no unit at this point.')}</p>
+        ) : (
+          <>
+            <p className="mt-0.5 text-sm font-semibold">{plain.kind}</p>
+            {plain.period && (
+              <p className="text-xs text-white/75">
+                {t('Época: {p}', 'Age: {p}', { p: plain.period })}
+                {plain.age && ` · ${plain.age}`}
+                {plain.story && ` · ${plain.story}`}
+              </p>
+            )}
+            <p className="mt-1 font-mono text-[11px] text-white/45">
+              {t('Nombre oficial', 'Official name')}: {unit.name} ({unit.code})
+            </p>
+          </>
+        )}
+      </div>
+      <p className="mt-2 text-[11px] text-white/60">
+        {map === 'failed'
+          ? t(
+              'No se pudo cargar el mapa de colores (hace falta internet); se muestra el relieve.',
+              'The colour map could not load (internet is needed); the relief is shown instead.',
+            )
+          : map === 'loading'
+            ? t('Cargando el mapa geológico…', 'Loading the geologic map…')
+            : t('Se ve el relieve debajo de los colores.', 'The relief shows through the colours.')}{' '}
+        <a href={GEOLOGY_SOURCE} target="_blank" rel="noreferrer" className="text-orange-300 hover:underline">
+          USGS SIM 3292 ↗
+        </a>
+      </p>
+    </>
   )
 }

@@ -88,7 +88,7 @@ export function Credits({ view }: { view: View }) {
     <p className="pointer-events-none absolute bottom-6 left-6 hidden text-[11px] leading-snug text-white/55 lg:block">
       {view === 'globe'
         ? t('Arrastra para girar · rueda para acercar · F pantalla completa', 'Drag to rotate · scroll to zoom · F full screen')
-        : t('Esc volver · 1 2 3 capas · arrastra para girar', 'Esc back · 1 2 3 layers · drag to rotate')}
+        : t('Esc volver · 1–4 capas · arrastra para girar', 'Esc back · 1–4 layers · drag to rotate')}
       <br />
       {t(
         'MOLA, HiRISE, Viking: NASA/JPL/GSFC/UArizona · Textura: NASA Mars Trek (Viking MDIM 2.1) · respaldo: Solar System Scope (CC BY 4.0)',

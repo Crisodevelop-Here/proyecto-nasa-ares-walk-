@@ -32,6 +32,9 @@ test('globe → Gale crater → tabs, layers and back', async ({ page }) => {
   // Layer shortcut: 3 = slope legend.
   await page.keyboard.press('3')
   await expect(page.getByText(/por dónde se puede ir/i)).toBeVisible()
+  // 4 = USGS geology legend.
+  await page.keyboard.press('4')
+  await expect(page.getByText(/de qué está hecho el suelo/i)).toBeVisible()
 
   // Guided rover traverse: start it, switch cameras, leave it.
   await page.getByRole('button', { name: /Recorrer la ruta en rover/ }).click()

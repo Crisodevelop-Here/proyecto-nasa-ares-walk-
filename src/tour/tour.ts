@@ -7,9 +7,11 @@ export interface TourState {
   playing: boolean
   /** Distance travelled along the route (m). */
   d: number
-  /** Playback multiplier (1 = whole route in about TOUR_SECONDS). */
+  /** Playback multiplier (1 = the rover's whole route in about TOUR_SECONDS). */
   speed: number
   camera: TourCamera
+  /** Rover traverse: show a suited astronaut walking the route instead of the rover. */
+  astronaut: boolean
   /** Seconds left of the pause at the stop just reached. */
   hold: number
   /** Index into `arrivals` of the next stop to reach. */
@@ -30,7 +32,7 @@ export const TOUR_SECONDS = 75
 /** Seconds the traverse pauses at each stop. */
 export const STOP_HOLD = 2.8
 
-export const newTour = (): TourState => ({ active: false, playing: false, d: 0, speed: 1, camera: 'chase', hold: 0, next: 0, look: new THREE.Vector3() })
+export const newTour = (): TourState => ({ active: false, playing: false, d: 0, speed: 1, camera: 'chase', astronaut: false, hold: 0, next: 0, look: new THREE.Vector3() })
 
 export interface Arrival {
   /** Route distance (m) where the stop is reached. */
@@ -88,6 +90,22 @@ export function profile(plan: RoutePlan, n = 240) {
 }
 
 /** Index of the route point at distance d (binary search). */
+/**
+ * Playback pace: mission hours of travel per second of animation. The same clock is used for the rover and
+ * the astronaut, so each moves at its own real speed (the rover drives the route in TOUR_SECONDS; on foot
+ * the same route takes about three times longer, and both slow down on climbs).
+ */
+export const tourHoursPerSecond = (reference: RoutePlan) => Math.max(1e-6, reference.walkHours) / TOUR_SECONDS
+
+/** Ground speed on the route at distance `d`, in metres per mission hour (from the plan's timing). */
+export function speedAt(plan: RoutePlan, d: number) {
+  const p = plan.points
+  if (p.length < 2) return 0
+  const i = Math.min(p.length - 2, pointIndexAt(plan, d))
+  const dt = p[i + 1].t - p[i].t
+  return dt > 0 ? (p[i + 1].d - p[i].d) / dt : plan.distanceM / Math.max(1e-6, plan.walkHours)
+}
+
 export function pointIndexAt(plan: RoutePlan, d: number) {
   const p = plan.points
   let lo = 0

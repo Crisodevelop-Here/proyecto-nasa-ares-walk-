@@ -1,14 +1,17 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, type RefObject } from 'react'
+import { Suspense, useEffect, useMemo, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import type { Terrain } from '../terrain/terrain'
-import { STOP_HOLD, TOUR_SECONDS, type Arrival, type TourState } from '../tour/tour'
+import { speedAt, STOP_HOLD, type Arrival, type TourState } from '../tour/tour'
 import type { RoutePlan, UV } from '../types'
 import { K, pointAtDistance, toWorld } from './geo'
 import { UNITS_PER_M } from './mars'
 import { REGION_SCALE, regionLocal, regionPlacement } from './RegionTerrain'
 import { SITE_EX, SITE_SCALE, sitePlacement } from './SiteTerrain'
 import { blobTexture, DUST, dustMaterial, Rocks, SKY_HORIZON, skyMaterial } from './traveler/surroundings'
+import { gaitPose, mixPose, STAND, strideHz, type GaitKind } from './traveler/gait'
+import { LITE } from '../perf'
+import { ModelBoundary, NasaAstronaut, NasaRover } from './traveler/nasaModels'
 import { AstronautModel, RoverModel } from './traveler/vehicles'
 
 const SPACE = new THREE.Color('#03040a')
@@ -38,20 +41,30 @@ interface Props {
   plan: RoutePlan
   arrivals: Arrival[]
   tour: RefObject<TourState>
+  /** Mission hours of travel per second of animation (same clock for the rover and the astronaut). */
+  hoursPerSecond: number
   /** Called ~12 times a second and on every arrival, so the HUD can follow. */
   onTick: () => void
 }
 
 /** The rover (region) or the suited astronaut (EVA) driving / walking the planned route. */
-export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Props) {
+export function Traveler({ mode, terrain: t, plan, arrivals, tour, hoursPerSecond, onTick }: Props) {
   const { camera, scene } = useThree()
   const group = useRef<THREE.Group>(null)
   const avatar = useRef<THREE.Group>(null)
+  const roverBody = useRef<THREE.Group>(null)
+  const suitBody = useRef<THREE.Group>(null)
   const wheels = useRef<THREE.Group>(null)
+  const body = useRef<THREE.Group>(null)
   const legL = useRef<THREE.Group>(null)
   const legR = useRef<THREE.Group>(null)
+  const kneeL = useRef<THREE.Group>(null)
+  const kneeR = useRef<THREE.Group>(null)
   const armL = useRef<THREE.Group>(null)
   const armR = useRef<THREE.Group>(null)
+  /** Stride phase of the walk (strides) and how much of the walk pose is applied (0 = standing). */
+  const stride = useRef(0)
+  const stepMix = useRef(0)
   const ring = useRef<THREE.Mesh>(null)
   const sky = useRef(0)
   const lastTick = useRef(0)
@@ -143,7 +156,8 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
     if (s.playing) {
       if (s.hold > 0) s.hold = Math.max(0, s.hold - dt)
       else {
-        const v = (total / TOUR_SECONDS) * s.speed
+        // Real ground speed on this stretch (slower uphill and on rough ground), on the shared clock.
+        const v = speedAt(plan, s.d) * hoursPerSecond * s.speed
         s.d = Math.min(total, s.d + v * dt)
         const next = arrivals[s.next]
         if (next && s.d >= next.d - 0.5) {
@@ -157,6 +171,10 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
       }
     }
     const moving = s.playing && s.hold === 0
+    // On foot: the EVA, or the astronaut silhouette chosen on the rover traverse.
+    const walker = mode === 'site' || s.astronaut
+    if (roverBody.current) roverBody.current.visible = !walker
+    if (suitBody.current) suitBody.current.visible = walker
 
     // ---- avatar: heading eased toward the way ahead, body following the ground ----
     const here = pointAtDistance(plan.points, s.d).uv
@@ -172,7 +190,7 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
     let dYaw = wantYaw - yaw.current
     dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw))
     // Turn rate: a rover turns deliberately, a walker quickly.
-    yaw.current += dYaw * (1 - Math.exp(-(mode === 'site' ? 7 : 3.2) * dt))
+    yaw.current += dYaw * (1 - Math.exp(-(walker ? 7 : 3.2) * dt))
     steer.current = THREE.MathUtils.damp(steer.current, THREE.MathUtils.clamp(dYaw * 2.2, -0.45, 0.45), 6, dt)
 
     // Ground under the four corners → pitch and roll (rocker-bogie keeps all six wheels down).
@@ -189,11 +207,11 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
     const yB = gAt(-fx * L, -fz * L)
     const yLft = gAt(fz * Wd, -fx * Wd) // +x of the body when it faces +z
     const yRgt = gAt(-fz * Wd, fx * Wd)
-    const wantPitch = mode === 'site' ? 0 : Math.atan2(yF - yB, 2 * L)
-    const wantRoll = mode === 'site' ? 0 : Math.atan2(yLft - yRgt, 2 * Wd)
+    const wantPitch = walker ? 0 : Math.atan2(yF - yB, 2 * L)
+    const wantRoll = walker ? 0 : Math.atan2(yLft - yRgt, 2 * Wd)
     pitch.current = THREE.MathUtils.damp(pitch.current, wantPitch, 5, dt)
     roll.current = THREE.MathUtils.damp(roll.current, wantRoll, 5, dt)
-    const bodyY = mode === 'site' ? pos.y : (yF + yB + yLft + yRgt) / 4
+    const bodyY = walker ? pos.y : (yF + yB + yLft + yRgt) / 4
     if (avatar.current) {
       avatar.current.position.set(pos.x, Math.max(pos.y, bodyY), pos.z)
       avatar.current.rotation.set(-pitch.current, yaw.current, roll.current, 'YXZ')
@@ -201,7 +219,7 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
       // From the cab / helmet you don't see your own vehicle or suit.
       avatar.current.visible = s.camera !== 'pov'
     }
-    if (moving) phase.current += ((total / TOUR_SECONDS) * s.speed * dt) / (mode === 'site' ? 1.6 : rig.size * 0.6)
+    if (moving) phase.current += (speedAt(plan, s.d) * hoursPerSecond * s.speed * dt) / (mode === 'site' ? 1.6 : rig.size * (walker ? 0.32 : 0.6))
     const ph = phase.current
     if (wheels.current)
       wheels.current.children.forEach((w, i) => {
@@ -210,17 +228,28 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
         // Corner wheels steer (front one way, rear the other); the middle pair is fixed.
         w.rotation.y = i < 2 ? steer.current : i >= 4 ? -steer.current : 0
       })
-    const swing = moving ? Math.sin(ph * Math.PI) * 0.6 : 0
-    if (legL.current) legL.current.rotation.x = swing
-    if (legR.current) legR.current.rotation.x = -swing
-    if (armL.current) armL.current.rotation.x = -swing * 0.7
-    if (armR.current) armR.current.rotation.x = swing * 0.7
+    // ---- suited walk in Mars gravity (real-time cadence; the traverse itself is a time-lapse) ----
+    // At ×2 and faster the crew is "hurrying": an Apollo-style lope instead of a walk.
+    const gait: GaitKind = s.speed >= 2 ? 'lope' : 'walk'
+    if (moving) stride.current += strideHz(gait) * dt
+    stepMix.current = THREE.MathUtils.damp(stepMix.current, moving ? 1 : 0, 4, dt)
+    const pose = mixPose(STAND, gaitPose(stride.current, gait), stepMix.current)
+    if (legL.current) legL.current.rotation.x = -pose.hipL
+    if (legR.current) legR.current.rotation.x = -pose.hipR
+    if (kneeL.current) kneeL.current.rotation.x = pose.kneeL
+    if (kneeR.current) kneeR.current.rotation.x = pose.kneeR
+    if (armL.current) armL.current.rotation.x = -pose.armL
+    if (armR.current) armR.current.rotation.x = -pose.armR
+    if (body.current) {
+      body.current.position.y = pose.lift
+      body.current.rotation.x = pose.lean
+    }
     if (ring.current) {
       // Soft contact shadow under the vehicle / boots.
       ring.current.visible = s.camera !== 'pov'
       ring.current.position.set(pos.x, bodyY + 0.2 * K, pos.z)
       ring.current.rotation.set(-Math.PI / 2, 0, -yaw.current)
-      ring.current.scale.set(rig.size * K * (mode === 'site' ? 0.5 : 0.95), rig.size * K * (mode === 'site' ? 0.5 : 1.25), 1)
+      ring.current.scale.set(rig.size * K * (walker ? 0.5 : 0.95), rig.size * K * (walker ? 0.5 : 1.25), 1)
     }
 
     // ---- dust kicked up by the wheels / boots ----
@@ -229,16 +258,16 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
       const P = dustGeo.attributes.position as THREE.BufferAttribute
       const A = dustGeo.attributes.alpha as THREE.BufferAttribute
       if (moving) {
-        dustAcc.current += dt * (mode === 'site' ? 18 : 40) * Math.min(2, s.speed)
+        dustAcc.current += dt * (walker ? 18 : 40) * Math.min(2, s.speed)
         while (dustAcc.current > 1) {
           dustAcc.current--
           const i = dp.next
           dp.next = (dp.next + 1) % DUST
           const side = Math.random() < 0.5 ? -1 : 1
           const back = -L * (0.6 + Math.random() * 0.5)
-          dp.p[i * 3] = pos.x + fx * back + fz * Wd * side * (mode === 'site' ? 0.2 : 1)
+          dp.p[i * 3] = pos.x + fx * back + fz * Wd * side * (walker ? 0.2 : 1)
           dp.p[i * 3 + 1] = bodyY + rig.size * K * 0.08
-          dp.p[i * 3 + 2] = pos.z + fz * back - fx * Wd * side * (mode === 'site' ? 0.2 : 1)
+          dp.p[i * 3 + 2] = pos.z + fz * back - fx * Wd * side * (walker ? 0.2 : 1)
           const sp = rig.size * K * 0.35
           dp.v[i * 3] = -fx * sp * 0.4 + (Math.random() - 0.5) * sp * 0.5
           dp.v[i * 3 + 1] = sp * (0.25 + Math.random() * 0.35)
@@ -251,7 +280,7 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
           A.setX(i, 0)
           continue
         }
-        dp.life[i] -= dt / (mode === 'site' ? 1.6 : 2.4)
+        dp.life[i] -= dt / (walker ? 1.6 : 2.4)
         for (let c = 0; c < 3; c++) dp.p[i * 3 + c] += dp.v[i * 3 + c] * dt
         dp.v[i * 3 + 1] -= rig.size * K * 0.05 * dt // Mars' low gravity: dust hangs
         P.setXYZ(i, dp.p[i * 3], dp.p[i * 3 + 1], dp.p[i * 3 + 2])
@@ -262,7 +291,7 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
     }
 
     // Puff diameter in metres → pixels at unit view distance (fov 38°).
-    dustMat.uniforms.uSize.value = (mode === 'site' ? 1.4 : rig.size * 0.55) * UNITS_PER_M * window.innerHeight * window.devicePixelRatio * 1.45
+    dustMat.uniforms.uSize.value = (mode === 'site' ? 1.4 : rig.size * (walker ? 0.3 : 0.55)) * UNITS_PER_M * window.innerHeight * window.devicePixelRatio * 1.45
     // ---- camera ----
     // Behind the vehicle's own (eased) heading, so turns sweep smoothly instead of snapping.
     const dir = tmp.w.set(fx, 0, fz)
@@ -272,7 +301,7 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
     const lookUV = pointAtDistance(plan.points, Math.min(total, s.d + rig.ahead)).uv
     if (s.camera === 'pov') {
       // From the cab / helmet: eye height, looking down the route.
-      const bob = mode === 'site' && moving ? Math.abs(Math.sin(ph * Math.PI)) * 0.08 : 0
+      const bob = walker ? pose.lift * rig.eye : 0
       camL.copy(pos).addScaledVector(dir, rig.size * 0.3 * K)
       camL.y += (rig.eye + bob) * K * (mode === 'region' ? 3 : SITE_EX)
       local(lookUV, rig.eye * K * 2, lookL)
@@ -323,7 +352,33 @@ export function Traveler({ mode, terrain: t, plan, arrivals, tour, onTick }: Pro
           <meshBasicMaterial map={shadowTex} transparent depthWrite={false} toneMapped={false} />
         </mesh>
         <points geometry={dustGeo} material={dustMat} frustumCulled={false} renderOrder={5} />
-        <group ref={avatar}>{mode === 'region' ? <RoverModel wheels={wheels} /> : <AstronautModel legL={legL} legR={legR} armL={armL} armR={armR} />}</group>
+        <group ref={avatar}>
+          {mode === 'region' && (
+            <group ref={roverBody}>
+              {/* NASA's Perseverance model; the light mode, or a failed or pending load, uses the built-in one. */}
+              {LITE ? (
+                <RoverModel wheels={wheels} />
+              ) : (
+                <ModelBoundary fallback={<RoverModel wheels={wheels} />}>
+                  <Suspense fallback={<RoverModel wheels={wheels} />}>
+                    <NasaRover />
+                  </Suspense>
+                </ModelBoundary>
+              )}
+            </group>
+          )}
+          <group ref={suitBody} visible={mode === 'site'}>
+            {LITE ? (
+              <AstronautModel body={body} legL={legL} legR={legR} kneeL={kneeL} kneeR={kneeR} armL={armL} armR={armR} />
+            ) : (
+              <ModelBoundary fallback={<AstronautModel body={body} legL={legL} legR={legR} kneeL={kneeL} kneeR={kneeR} armL={armL} armR={armR} />}>
+                <Suspense fallback={<AstronautModel body={body} legL={legL} legR={legR} kneeL={kneeL} kneeR={kneeR} armL={armL} armR={armR} />}>
+                  <NasaAstronaut body={body} legL={legL} legR={legR} kneeL={kneeL} kneeR={kneeR} armL={armL} armR={armR} />
+                </Suspense>
+              </ModelBoundary>
+            )}
+          </group>
+        </group>
       </group>
     </>
   )

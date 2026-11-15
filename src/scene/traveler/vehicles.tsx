@@ -1,5 +1,5 @@
 // 3D models that travel the route: the pressurized rover and the suited astronaut.
-import { useMemo, type RefObject } from 'react'
+import { useEffect, useMemo, type RefObject } from 'react'
 import * as THREE from 'three'
 
 /** A tube between two points (suspension bars, arm segments). */
@@ -185,56 +185,237 @@ export function RoverModel({ wheels }: { wheels: RefObject<THREE.Group | null> }
   )
 }
 
-/** Suited astronaut, 1 unit ≈ height. Forward is +z. */
-export function AstronautModel({ legL, legR, armL, armR }: Record<'legL' | 'legR' | 'armL' | 'armR', RefObject<THREE.Group | null>>) {
-  const suit = <meshStandardMaterial color="#f1f0ec" roughness={0.75} />
+/** Moving parts of the astronaut, driven by the gait animation. */
+export type AstroParts = Record<'body' | 'legL' | 'legR' | 'kneeL' | 'kneeR' | 'armL' | 'armR', RefObject<THREE.Group | null>>
+
+/** Off-white suit fabric: woven speckle with quilting seams (procedural, no external texture). */
+function fabricTexture() {
+  const S = 256
+  const c = document.createElement('canvas')
+  c.width = c.height = S
+  const g = c.getContext('2d')!
+  g.fillStyle = '#ecebe5'
+  g.fillRect(0, 0, S, S)
+  let seed = 7
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+  for (let i = 0; i < 9000; i++) {
+    const v = 200 + rnd() * 50
+    g.fillStyle = `rgba(${v},${v},${v - 6},0.35)`
+    g.fillRect(rnd() * S, rnd() * S, 1.5, 1.5)
+  }
+  // Soft folds and quilted seams of the outer layer.
+  g.lineWidth = 2
+  for (let y = 16; y < S; y += 42) {
+    g.strokeStyle = 'rgba(150,148,140,0.35)'
+    g.beginPath()
+    g.moveTo(0, y)
+    for (let x = 0; x <= S; x += 16) g.lineTo(x, y + Math.sin(x * 0.05 + y) * 3)
+    g.stroke()
+  }
+  g.setLineDash([3, 4])
+  g.strokeStyle = 'rgba(120,118,110,0.45)'
+  g.lineWidth = 1
+  for (const x of [64, 192]) {
+    g.beginPath()
+    g.moveTo(x, 0)
+    g.lineTo(x, S)
+    g.stroke()
+  }
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.wrapS = t.wrapT = THREE.RepeatWrapping
+  t.repeat.set(2, 2)
+  return t
+}
+
+/** Small flag patch for the shoulder (stripes and canton, drawn on a canvas). */
+function flagTexture() {
+  const c = document.createElement('canvas')
+  c.width = 76
+  c.height = 40
+  const g = c.getContext('2d')!
+  for (let i = 0; i < 13; i++) {
+    g.fillStyle = i % 2 ? '#f5f5f5' : '#b22234'
+    g.fillRect(0, (i * 40) / 13, 76, 40 / 13 + 0.5)
+  }
+  g.fillStyle = '#3c3b6e'
+  g.fillRect(0, 0, 30, 21.5)
+  g.fillStyle = '#ffffff'
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 5; x++) g.fillRect(3 + x * 5.5, 3 + y * 5, 1.4, 1.4)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  return t
+}
+
+/** Corrugated hose between two points with a sag in the middle. */
+function Hose({ a, b, sag, mat }: { a: [number, number, number]; b: [number, number, number]; sag: [number, number, number]; mat: THREE.Material }) {
+  const geo = useMemo(() => {
+    const A = new THREE.Vector3(...a)
+    const B = new THREE.Vector3(...b)
+    const M = A.clone()
+      .add(B)
+      .multiplyScalar(0.5)
+      .add(new THREE.Vector3(...sag))
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3([A, M, B]), 24, 0.012, 8)
+  }, [a, b, sag])
+  return <mesh geometry={geo} material={mat} />
+}
+
+function suitMaterials() {
+  const fabric = fabricTexture()
+  return {
+    suit: new THREE.MeshStandardMaterial({ color: '#ffffff', map: fabric, roughness: 0.92 }),
+    soft: new THREE.MeshStandardMaterial({ color: '#dcdad3', map: fabric, roughness: 0.95 }),
+    metal: new THREE.MeshStandardMaterial({ color: '#b8bcc2', metalness: 0.8, roughness: 0.3 }),
+    grey: new THREE.MeshStandardMaterial({ color: '#8f949b', roughness: 0.6 }),
+    dark: new THREE.MeshStandardMaterial({ color: '#2d3036', roughness: 0.5 }),
+    glove: new THREE.MeshStandardMaterial({ color: '#5d6168', roughness: 0.7 }),
+    boot: new THREE.MeshStandardMaterial({ color: '#c9c7c0', roughness: 0.85 }),
+    sole: new THREE.MeshStandardMaterial({ color: '#4a4c50', roughness: 0.9 }),
+    red: new THREE.MeshStandardMaterial({ color: '#c0262d', roughness: 0.4, metalness: 0.3 }),
+    blue: new THREE.MeshStandardMaterial({ color: '#23408e', roughness: 0.4, metalness: 0.3 }),
+    hose: new THREE.MeshStandardMaterial({ color: '#efede6', roughness: 0.8 }),
+    glass: new THREE.MeshPhysicalMaterial({ color: '#cfd8e3', transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0.2 }),
+    // Gold sun visor: little metalness and a warm glow, so it reads gold without an environment map.
+    visor: new THREE.MeshStandardMaterial({ color: '#e0b030', roughness: 0.22, metalness: 0.55, emissive: '#7a5410', emissiveIntensity: 0.55 }),
+    flag: new THREE.MeshBasicMaterial({ map: flagTexture(), toneMapped: false }),
+  }
+}
+type SuitMats = ReturnType<typeof suitMaterials>
+type Ref = RefObject<THREE.Group | null>
+
+/** One leg: hip → thigh → knee → shin → boot. */
+function Leg({ hip, knee, x, m }: { hip: Ref; knee: Ref; x: number; m: SuitMats }) {
   return (
-    <group>
-      {/* legs pivot at the hip */}
-      {[
-        [legL, -0.08],
-        [legR, 0.08],
-      ].map(([ref, x]) => (
-        <group key={String(x)} ref={ref as RefObject<THREE.Group>} position={[x as number, 0.46, 0]}>
-          <mesh position={[0, -0.22, 0]}>
-            <capsuleGeometry args={[0.065, 0.32, 4, 10]} />
-            {suit}
-          </mesh>
-        </group>
+    <group ref={hip} position={[x, 0.47, 0]}>
+      <mesh position={[0, -0.11, 0]} material={m.suit}>
+        <capsuleGeometry args={[0.072, 0.12, 4, 12]} />
+      </mesh>
+      {/* thigh pocket */}
+      <mesh position={[x < 0 ? -0.06 : 0.06, -0.11, 0.02]} material={m.soft}>
+        <boxGeometry args={[0.03, 0.1, 0.08]} />
+      </mesh>
+      <group ref={knee} position={[0, -0.23, 0]}>
+        <mesh rotation={[Math.PI / 2, 0, 0]} material={m.soft}>
+          <torusGeometry args={[0.062, 0.016, 8, 16]} />
+        </mesh>
+        <mesh position={[0, -0.1, 0]} material={m.suit}>
+          <capsuleGeometry args={[0.066, 0.12, 4, 12]} />
+        </mesh>
+        {/* boot with a dark sole */}
+        <mesh position={[0, -0.2, 0.025]} material={m.boot}>
+          <boxGeometry args={[0.12, 0.07, 0.2]} />
+        </mesh>
+        <mesh position={[0, -0.232, 0.025]} material={m.sole}>
+          <boxGeometry args={[0.125, 0.016, 0.21]} />
+        </mesh>
+      </group>
+    </group>
+  )
+}
+
+/** One arm: shoulder → upper arm → elbow (slightly bent by the suit) → glove. */
+function Arm({ arm, x, m }: { arm: Ref; x: number; m: SuitMats }) {
+  return (
+    <group ref={arm} position={[x, 0.82, 0]}>
+      <mesh position={[0, -0.02, 0]} material={m.suit}>
+        <sphereGeometry args={[0.07, 14, 10]} />
+      </mesh>
+      <mesh position={[0, -0.1, 0]} material={m.suit}>
+        <capsuleGeometry args={[0.056, 0.12, 4, 12]} />
+      </mesh>
+      {x < 0 && (
+        <mesh position={[-0.058, -0.07, 0]} rotation={[0, -Math.PI / 2, 0]} material={m.flag}>
+          <planeGeometry args={[0.07, 0.037]} />
+        </mesh>
+      )}
+      <group position={[0, -0.2, 0]} rotation={[-0.35, 0, 0]}>
+        <mesh position={[0, -0.08, 0]} material={m.suit}>
+          <capsuleGeometry args={[0.05, 0.1, 4, 12]} />
+        </mesh>
+        <mesh position={[0, -0.155, 0]} rotation={[Math.PI / 2, 0, 0]} material={x < 0 ? m.blue : m.red}>
+          <torusGeometry args={[0.045, 0.012, 8, 16]} />
+        </mesh>
+        <mesh position={[0, -0.2, 0.005]} scale={[0.9, 1.1, 0.7]} material={m.glove}>
+          <sphereGeometry args={[0.05, 12, 10]} />
+        </mesh>
+      </group>
+    </group>
+  )
+}
+
+/**
+ * Suited astronaut, 1 unit ≈ height, feet at y = 0, forward is +z. Modelled after a classic NASA
+ * EVA suit: quilted white outer layer, chest control box with red and blue connectors and hoses,
+ * a large life-support backpack, bubble helmet with a gold visor, grey gloves and boots.
+ */
+export function AstronautModel({ body, legL, legR, kneeL, kneeR, armL, armR }: AstroParts) {
+  const m = useMemo(suitMaterials, [])
+  useEffect(() => () => Object.values(m).forEach((x) => (x.dispose(), 'map' in x && x.map?.dispose())), [m])
+  return (
+    <group ref={body}>
+      <Leg hip={legL} knee={kneeL} x={-0.085} m={m} />
+      <Leg hip={legR} knee={kneeR} x={0.085} m={m} />
+
+      {/* Torso, waist and neck rings */}
+      <mesh position={[0, 0.67, 0]} scale={[1, 1, 0.85]} material={m.suit}>
+        <capsuleGeometry args={[0.17, 0.2, 6, 16]} />
+      </mesh>
+      <mesh position={[0, 0.5, 0]} rotation={[Math.PI / 2, 0, 0]} material={m.soft}>
+        <torusGeometry args={[0.15, 0.018, 8, 24]} />
+      </mesh>
+      <mesh position={[0, 0.885, 0]} rotation={[Math.PI / 2, 0, 0]} material={m.blue}>
+        <torusGeometry args={[0.1, 0.02, 8, 24]} />
+      </mesh>
+
+      {/* Chest control box, connectors and hoses to the backpack */}
+      <mesh position={[0, 0.74, 0.15]} material={m.grey}>
+        <boxGeometry args={[0.14, 0.09, 0.06]} />
+      </mesh>
+      <mesh position={[0, 0.745, 0.182]} material={m.dark}>
+        <boxGeometry args={[0.08, 0.04, 0.006]} />
+      </mesh>
+      {(
+        [
+          [-0.07, 0.63, m.blue],
+          [-0.03, 0.6, m.blue],
+          [0.03, 0.6, m.red],
+          [0.07, 0.63, m.red],
+        ] as const
+      ).map(([x, y, mat]) => (
+        <mesh key={x} position={[x, y, 0.145]} rotation={[Math.PI / 2, 0, 0]} material={mat}>
+          <cylinderGeometry args={[0.02, 0.02, 0.03, 12]} />
+        </mesh>
       ))}
-      <mesh position={[0, 0.66, 0]}>
-        <capsuleGeometry args={[0.16, 0.22, 4, 14]} />
-        {suit}
+      <Hose a={[-0.07, 0.63, 0.16]} b={[-0.15, 0.78, -0.14]} sag={[-0.1, -0.12, 0.08]} mat={m.hose} />
+      <Hose a={[0.07, 0.63, 0.16]} b={[0.15, 0.78, -0.14]} sag={[0.1, -0.12, 0.08]} mat={m.hose} />
+
+      {/* Life-support backpack (PLSS) with the oxygen purge unit on top */}
+      <mesh position={[0, 0.69, -0.21]} material={m.suit}>
+        <boxGeometry args={[0.32, 0.38, 0.15]} />
       </mesh>
-      {/* life-support backpack */}
-      <mesh position={[0, 0.7, -0.17]}>
-        <boxGeometry args={[0.28, 0.34, 0.12]} />
-        <meshStandardMaterial color="#d4d4d8" roughness={0.6} />
+      <mesh position={[0, 0.69, -0.287]} material={m.soft}>
+        <boxGeometry args={[0.26, 0.3, 0.006]} />
       </mesh>
-      {[
-        [armL, -0.21],
-        [armR, 0.21],
-      ].map(([ref, x]) => (
-        <group key={String(x)} ref={ref as RefObject<THREE.Group>} position={[x as number, 0.8, 0]}>
-          <mesh position={[0, -0.16, 0]}>
-            <capsuleGeometry args={[0.05, 0.24, 4, 10]} />
-            {suit}
-          </mesh>
-        </group>
-      ))}
-      <mesh position={[0, 0.98, 0]}>
-        <sphereGeometry args={[0.13, 20, 16]} />
-        {suit}
+      <mesh position={[0, 0.92, -0.2]} material={m.suit}>
+        <boxGeometry args={[0.27, 0.09, 0.13]} />
       </mesh>
-      {/* gold visor */}
-      <mesh position={[0, 0.98, 0.06]}>
-        <sphereGeometry args={[0.105, 20, 16, -Math.PI / 2.2, Math.PI / 1.1, Math.PI / 3.2, Math.PI / 2.6]} />
-        <meshStandardMaterial color="#d4a017" roughness={0.15} metalness={0.9} />
+      <mesh position={[0.1, 0.97, -0.2]} rotation={[0, 0, Math.PI / 2]} material={m.metal}>
+        <cylinderGeometry args={[0.012, 0.012, 0.05, 8]} />
       </mesh>
-      {/* NASA-ish orange shoulder band for visibility */}
-      <mesh position={[0, 0.8, 0]}>
-        <torusGeometry args={[0.165, 0.015, 8, 24]} />
-        <meshBasicMaterial color="#fb923c" toneMapped={false} />
+
+      <Arm arm={armL} x={-0.215} m={m} />
+      <Arm arm={armR} x={0.215} m={m} />
+
+      {/* Helmet: clear pressure bubble, white visor shell and gold sun visor (three.js sphere: φ = π/2 faces +z) */}
+      <mesh position={[0, 0.99, 0]} material={m.glass}>
+        <sphereGeometry args={[0.135, 24, 18]} />
+      </mesh>
+      <mesh position={[0, 0.99, -0.005]} material={m.suit}>
+        <sphereGeometry args={[0.142, 24, 18, Math.PI / 2 + 0.95, Math.PI * 2 - 1.9, 0, Math.PI / 1.7]} />
+      </mesh>
+      <mesh position={[0, 0.99, 0.004]} material={m.visor}>
+        <sphereGeometry args={[0.14, 24, 18, Math.PI / 2 - 0.9, 1.8, Math.PI / 4, Math.PI / 3]} />
       </mesh>
     </group>
   )

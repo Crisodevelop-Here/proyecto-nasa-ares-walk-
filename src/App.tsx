@@ -15,7 +15,7 @@ import { Stage, type Shot } from './scene/Stage'
 import { loadTerrain, type Terrain } from './terrain/terrain'
 import { placeName, SidePanel, type Tab } from './ui/SidePanel'
 import { Traveler } from './scene/Traveler'
-import { arrivals, newTour, TOUR_CAMERAS, type TourCamera, type TourState } from './tour/tour'
+import { arrivals, newTour, TOUR_CAMERAS, tourHoursPerSecond, type TourCamera, type TourState } from './tour/tour'
 import { TourHud } from './ui/TourHud'
 import { LayerLegend, type GeologyState } from './ui/LayerLegend'
 import { Credits, GlobeOverlay, LangToggle } from './ui/GlobeOverlay'
@@ -62,6 +62,10 @@ export default function App() {
   /** Snapshot of the tour for the HUD; null when no traverse is running. */
   const [tourUI, setTourUI] = useState<TourState | null>(null)
   const tick = useCallback(() => setTourUI(tour.current.active ? { ...tour.current } : null), [])
+  /** Regional traverse on foot (astronaut) instead of in the rover: its own route, with the suit's limits. */
+  const [onFoot, setOnFoot] = useState(false)
+  /** Progress (0–1) to restore after switching between rover and on foot, once the new route is ready. */
+  const switchAt = useRef<number | null>(null)
 
   useEffect(() => {
     loadTerrain('/terrain').then(setSiteTerrain)
@@ -172,6 +176,14 @@ export default function App() {
     return planRoute(region.terrain, habitat, stops, { profile: ROVER, solarEvent: solarStorm, doseMSvPerDay: doseAtElevation(region.meanZ) })
     // oxlint-disable-next-line react-hooks/exhaustive-deps, react/memo-dependencies -- lang: these build texts in the current language
   }, [region, habitat, stops, solarStorm, lang])
+  // Same stops on foot: the suit can take steeper ground (22° instead of 15°) but walks at ~3 km/h, and the
+  // EVA limits (hours, oxygen) apply. Only planned when someone switches to the astronaut.
+  const footPlan = useMemo(() => {
+    if (!onFoot || !region || !habitat || !stops.length) return null
+    return planRoute(region.terrain, habitat, stops, { profile: SUIT, solarEvent: solarStorm, doseMSvPerDay: doseAtElevation(region.meanZ) })
+    // oxlint-disable-next-line react-hooks/exhaustive-deps, react/memo-dependencies -- lang: these build texts in the current language
+  }, [onFoot, region, habitat, stops, solarStorm, lang])
+  const regionTourPlan = onFoot && footPlan ? footPlan : plan
   const sitePlan = useMemo(
     () =>
       siteTerrain
@@ -190,7 +202,7 @@ export default function App() {
   const siteAvailable = !!region && !!siteTerrain && insidePatch(latLonToUV(region, SITE.lat, SITE.lon), 0.02)
 
   // ---- guided traverse ----
-  const tourPlan = view === 'site' ? sitePlan : view === 'region' ? plan : null
+  const tourPlan = view === 'site' ? sitePlan : view === 'region' ? regionTourPlan : null
   const tourArrivals = useMemo(() => {
     if (!tourPlan) return []
     const stations = view === 'site' ? STATION_BY_ID : Object.fromEntries([...(habitat ? [habitat] : []), ...stops].map((x) => [x.id, x]))
@@ -198,7 +210,8 @@ export default function App() {
   }, [tourPlan, view, habitat, stops])
   const startTour = useCallback(() => {
     const keep = tour.current
-    tour.current = { ...newTour(), active: true, playing: true, speed: keep.speed, camera: keep.camera, look: keep.look }
+    tour.current = { ...newTour(), active: true, playing: true, speed: keep.speed, camera: keep.camera, astronaut: keep.astronaut, look: keep.look }
+    switchAt.current = null
     tick()
   }, [tick])
   const stopTour = useCallback(() => {
@@ -228,6 +241,22 @@ export default function App() {
       tick()
     },
     [tourArrivals, tick],
+  )
+  // After switching rover ⇄ on foot, continue from the same share of the route on the new one.
+  useEffect(() => {
+    if (switchAt.current === null || !tourPlan) return
+    const frac = switchAt.current
+    switchAt.current = null
+    seek(frac * (tourPlan.points.at(-1)?.d ?? 0))
+  }, [tourPlan, seek])
+  const setOnFootTour = useCallback(
+    (on: boolean) => {
+      switchAt.current = tourTotal > 0 ? tour.current.d / tourTotal : 0
+      tour.current.astronaut = on
+      setOnFoot(on)
+      tick()
+    },
+    [tourTotal, tick],
   )
   const setTourCamera = useCallback(
     (c: TourCamera) => {
@@ -319,7 +348,8 @@ export default function App() {
             textures={textures}
             normalMap={normalMap}
             layer={layer}
-            plan={plan}
+            // During the traverse, draw the route actually being followed (on foot it is the suit route).
+            plan={tourUI ? (regionTourPlan ?? plan) : plan}
             stops={habitat ? [habitat, ...stops] : stops}
             missions={nearMissions}
             active={view === 'region'}
@@ -328,9 +358,20 @@ export default function App() {
           />
         )}
         {view === 'region' && region && plan && (
-          <Traveler key={`r${region.lat}${region.lon}`} mode="region" terrain={region.terrain} plan={plan} arrivals={tourArrivals} tour={tour} onTick={tick} />
+          <Traveler
+            key={`r${region.lat}${region.lon}`}
+            mode="region"
+            terrain={region.terrain}
+            plan={regionTourPlan ?? plan}
+            arrivals={tourArrivals}
+            tour={tour}
+            hoursPerSecond={tourHoursPerSecond(plan)}
+            onTick={tick}
+          />
         )}
-        {view === 'site' && siteTerrain && sitePlan && <Traveler key="site" mode="site" terrain={siteTerrain} plan={sitePlan} arrivals={tourArrivals} tour={tour} onTick={tick} />}
+        {view === 'site' && siteTerrain && sitePlan && (
+          <Traveler key="site" mode="site" terrain={siteTerrain} plan={sitePlan} arrivals={tourArrivals} tour={tour} hoursPerSecond={tourHoursPerSecond(sitePlan)} onTick={tick} />
+        )}
       </Stage>
 
       <GlobeOverlay view={view} labels={labels} hoverEl={hoverEl} onPickMission={(m) => pick(m.lat, m.lon)} />
@@ -374,7 +415,7 @@ export default function App() {
           arrivals={tourArrivals}
           tour={tourUI}
           baseName={view === 'site' ? tr(STATION_BY_ID.hab.name) : (habitat?.name ?? 'Base')}
-          maxSlope={view === 'site' ? SUIT.maxSlopeDeg : ROVER.maxSlopeDeg}
+          maxSlope={view === 'site' || onFoot ? SUIT.maxSlopeDeg : ROVER.maxSlopeDeg}
           onPlay={togglePlay}
           onSeek={seek}
           onSpeed={(v) => {
@@ -382,6 +423,7 @@ export default function App() {
             tick()
           }}
           onCamera={setTourCamera}
+          onAstronaut={setOnFootTour}
           onExit={stopTour}
         />
       )}

@@ -238,6 +238,9 @@ interface StageProps {
   children?: ReactNode
 }
 
+/** Highest pixel ratio during a guided traverse. */
+const TOUR_MAX_DPR = 1.25
+
 export function Stage({
   view,
   focus,
@@ -266,12 +269,15 @@ export function Stage({
   // drops (e.g. 8 GB laptops with integrated graphics), lower it toward 1×. Nothing else changes.
   const maxDpr = LITE ? 0.75 : Math.min(2, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)
   const [dpr, setDpr] = useState(maxDpr)
+  // During a ground traverse the camera keeps moving and the terrain shader (procedural detail, stones)
+  // runs on every pixel: cap the resolution there (Retina 2× → 1.25×, about 40 % less GPU time per frame).
+  const frameDpr = touring && view !== 'globe' ? Math.min(dpr, TOUR_MAX_DPR) : dpr
   // Still slow at the lowest resolution → lighter globe mesh and texture (sticks once on).
   const [low, setLow] = useState(LITE)
   return (
     <Canvas
       camera={{ position: [0, 4, 36], fov: 38, near: 1e-6, far: 4000 }}
-      dpr={dpr}
+      dpr={frameDpr}
       aria-label="Globo 3D de Marte: arrastra para girar, rueda para acercar, clic en un punto para bajar al terreno. También puedes usar los botones de misión."
       role="region"
       gl={{ logarithmicDepthBuffer: true, antialias: !LITE }}
@@ -300,7 +306,7 @@ export function Stage({
       <hemisphereLight args={['#ffd9b8', '#1a1020', 0.25]} />
       <StarField />
       <Suspense fallback={null}>
-        <MarsGlobe ref={planet} view={view} low={low} onPick={onPick} onHover={hover} />
+        <MarsGlobe ref={planet} view={view} low={low} onPick={onPick} onHover={hover} hidden={!!touring && view !== 'globe'} />
         {/* Phobos and Deimos orbit in Mars' equatorial plane (tilted with the planet's axis). */}
         <group quaternion={TILT}>
           <Moons view={view} />

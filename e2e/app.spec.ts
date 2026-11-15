@@ -42,6 +42,12 @@ test('globe → Gale crater → tabs, layers and back', async ({ page }) => {
   // Guided rover traverse: start it, switch cameras, leave it.
   await page.getByRole('button', { name: /Recorrer la ruta en rover/ }).click()
   for (const cam of ['Cabina', 'Dron', 'Seguir']) await page.getByRole('button', { name: cam, exact: true }).click({ force: true })
+  // Astronaut silhouette instead of the rover.
+  const astro = page.getByRole('button', { name: /Astronauta/ })
+  await astro.click({ force: true })
+  await expect(astro).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByText(/A pie · ruta para el traje/i)).toBeVisible()
+  await expect(page.getByText(/de caminata/i)).toBeVisible()
   await page.waitForTimeout(1500)
   await page.getByRole('button', { name: 'Salir', exact: true }).click({ force: true })
   await expect(page.getByRole('button', { name: /Recorrer la ruta en rover/ })).toBeVisible()

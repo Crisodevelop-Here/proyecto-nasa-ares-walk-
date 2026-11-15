@@ -112,10 +112,12 @@ function groundDetail(shader: THREE.WebGLProgramParametersWithUniforms) {
       // (or none), dome-shaped. x = height (m), y = stone coverage 0..1.
       vec2 stones(vec2 m, float cell, float salt) {
         vec2 q = m / cell;
-        vec2 c0 = floor(q);
+        // A stone's centre sits in 0.2–0.8 of its cell and its radius is ≤ 0.36, so it can only reach the
+        // neighbour on the near side: the 2 × 2 cells around the point are enough (4 lookups, not 9).
+        vec2 c0 = floor(q) + step(0.5, fract(q)) - 1.0;
         vec2 acc = vec2(0.0);
-        for (int y = -1; y <= 1; y++)
-        for (int x = -1; x <= 1; x++) {
+        for (int y = 0; y <= 1; y++)
+        for (int x = 0; x <= 1; x++) {
           vec2 c = c0 + vec2(x, y);
           vec3 h = dHash(vec3(c, salt));
           if (h.z > 0.62) continue;

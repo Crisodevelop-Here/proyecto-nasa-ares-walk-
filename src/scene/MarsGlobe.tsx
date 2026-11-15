@@ -238,10 +238,12 @@ interface Props {
   low?: boolean
   onPick: (lat: number, lon: number, mission?: Mission) => void
   onHover: (p: { lat: number; lon: number } | null) => void
+  /** Skip drawing the planet (during a ground-level traverse it is under the terrain and only costs GPU time). */
+  hidden?: boolean
 }
 
 /** The planet. Lives inside the oriented planet group; the focused spot ends on top (+y). */
-export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ view, low = false, onPick, onHover }, ref) {
+export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ view, low = false, onPick, onHover, hidden = false }, ref) {
   const [map, height, normal] = useTexture(
     LITE ? ['/globe/mars_2k.jpg', '/globe/mola_height_lite.png', '/globe/mola_normal_lite.jpg'] : ['/globe/mars_4k.jpg', '/globe/mola_height.png', '/globe/mola_normal.jpg'],
   )
@@ -381,6 +383,7 @@ export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ vie
           if (m) siteUniforms.uNM.value = m.normalMatrix
         }}
         renderOrder={-1}
+        visible={!hidden}
         onClick={(e) => {
           if (view !== 'globe' || e.delta > 5) return
           e.stopPropagation()
@@ -427,7 +430,7 @@ export const MarsGlobe = forwardRef<THREE.Group, Props>(function MarsGlobe({ vie
           </mesh>
         ))}
       </group>
-      <mesh scale={1.06} material={atmo} raycast={() => null}>
+      <mesh scale={1.06} material={atmo} raycast={() => null} visible={!hidden}>
         <sphereGeometry args={[R, 96, 48]} />
       </mesh>
     </group>

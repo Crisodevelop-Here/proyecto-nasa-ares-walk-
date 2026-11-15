@@ -17,6 +17,8 @@ interface Props {
   onSeek: (d: number) => void
   onSpeed: (s: number) => void
   onCamera: (c: TourCamera) => void
+  /** Rover traverse only: show the astronaut silhouette instead of the rover. */
+  onAstronaut: (on: boolean) => void
   onExit: () => void
 }
 
@@ -30,7 +32,7 @@ const hm = (h: number) => {
 /** Mouse or trackpad (hover works); false on touch screens. */
 const CAN_HOVER = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
 
-export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay, onSeek, onSpeed, onCamera, onExit }: Props) {
+export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay, onSeek, onSpeed, onCamera, onAstronaut, onExit }: Props) {
   const prof = useMemo(() => profile(plan), [plan])
   const svg = useRef<SVGSVGElement>(null)
   const total = plan.points.length ? plan.points[plan.points.length - 1].d : 1
@@ -118,7 +120,11 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
             </button>
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">
-                {mode === 'site' ? t('EVA a pie · Monte Sharp', 'EVA on foot · Mount Sharp') : t('Travesía en rover (tipo Perseverance)', 'Rover traverse (Perseverance-style)')}
+                {mode === 'site'
+                  ? t('EVA a pie · Monte Sharp', 'EVA on foot · Mount Sharp')
+                  : tour.astronaut
+                    ? t('A pie · ruta para el traje (simulación)', 'On foot · suit route (simulation)')
+                    : t('Travesía en rover (tipo Perseverance)', 'Rover traverse (Perseverance-style)')}
               </p>
               <p className="truncate text-sm text-white/85">
                 {done ? (
@@ -138,6 +144,16 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
                   </>
                 )}
               </p>
+              {mode === 'region' && tour.astronaut && (
+                // On foot the whole regional loop is a long walk: say plainly what the suit limits allow.
+                <p className={`truncate text-xs ${plan.feasible ? 'text-emerald-300' : 'text-amber-300'}`} title={plan.warnings.join(' ')}>
+                  {t('{h} de caminata · {d}', '{h} walking · {d}', { h: hm(plan.walkHours), d: km(total) })}
+                  {' · '}
+                  {plan.feasible
+                    ? t('dentro de los límites de la EVA', 'within the EVA limits')
+                    : (plan.warnings[0] ?? t('fuera de los límites de la EVA', 'outside the EVA limits'))}
+                </p>
+              )}
             </div>
             <div className="flex rounded-lg bg-white/5 p-0.5 text-xs">
               {TOUR_CAMERAS.map((c) => (
@@ -151,6 +167,20 @@ export function TourHud({ mode, plan, arrivals, tour, baseName, maxSlope, onPlay
                 </button>
               ))}
             </div>
+            {mode === 'region' && (
+              <button
+                type="button"
+                aria-pressed={tour.astronaut}
+                onClick={() => onAstronaut(!tour.astronaut)}
+                title={t(
+                  'Hace el recorrido a pie: ruta con los límites del traje (pendiente máx. 22°), a velocidad de caminata en Marte y con los límites de la EVA.',
+                  'Walks the traverse: a route within the suit’s limits (max slope 22°), at Martian walking speed and with the EVA limits.',
+                )}
+                className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${tour.astronaut ? 'bg-orange-400 text-slate-900' : 'bg-white/5 text-white/70 hover:text-white'}`}
+              >
+                🧑‍🚀 {t('Astronauta', 'Astronaut')}
+              </button>
+            )}
             <div className="flex rounded-lg bg-white/5 p-0.5 text-xs">
               {[0.5, 1, 2, 4].map((s) => (
                 <button

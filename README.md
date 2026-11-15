@@ -12,7 +12,7 @@ Es un globo 3D de Marte en el que se puede hacer clic en **cualquier punto** par
    - **Objetivos**: objetivo científico del sitio y la lista de datos integrados.
    - **Ruta**: travesía en rover presurizado calculada con A*, con paradas en hitos de misiones o en zonas de contraste de relieve. En Gale aparece **"Bajar a escala EVA"**: el Monte Sharp con HiRISE de 1 m y la ruta a pie.
    - **Seguridad**: radiación según la elevación, simulación de tormenta solar, presión, temperatura, pendientes, zona intransitable y retraso de comunicación.
-4. **Capas** (teclas 1/2/3): óptica, relieve y pendiente. En el Monte Sharp: imagen real, color mineral y pendiente.
+4. **Capas** (teclas 1–5): óptica, relieve, pendiente, geología y radiación (dosis estimada según la altura). En el Monte Sharp: imagen real, color mineral y pendiente.
 5. **Esc** vuelve atrás. **F** activa la pantalla completa.
 
 ## Cómo cumple los objetivos del reto
@@ -22,8 +22,8 @@ Es un globo 3D de Marte en el que se puede hacer clic en **cualquier punto** par
 | Mapa o interfaz para un astronauta en Marte | Globo → región → escala EVA, en un panel tipo tablet o pantalla del hábitat |
 | Objetivos científicos y elección del lugar | Pestaña **Objetivos**: curados en sitios de misiones (p. ej. boxwork en el Monte Sharp) o inferidos del terreno (hielo, volcanes, lagos, capas) |
 | Al menos 3 tipos de datos en capas | Óptico, topográfico, pendiente/obstáculos, radiación, atmosférico e histórico de misiones. En el Monte Sharp, además, DTM de 1 m y color mineral (espectral) |
-| Datos de varias misiones de NASA | MGS/MOLA, Viking, MRO/HiRISE, Curiosity (RAD, REMS), Perseverance, MER, Pathfinder, Phoenix, InSight |
-| Seguridad y clima espacial | Pestaña **Seguridad**: dosis por elevación (anclada a RAD), tormenta solar ×30, pendientes, % intransitable, comunicaciones y polvo |
+| Datos de varias misiones de NASA | MGS/MOLA, Viking, MRO/HiRISE, Curiosity (REMS), Perseverance, MER, Pathfinder, Phoenix, InSight |
+| Seguridad y clima espacial | Pestaña **Seguridad**: dosis estimada por elevación, tormenta solar ×30, pendientes, % intransitable, comunicaciones y polvo |
 | Movilidad en traje y obstáculos | Rutas A* que evitan pendientes de más de 22° a pie y de más de 15° en rover, y penalizan la rugosidad. Límites de O₂ y de duración de la EVA |
 | Ruta con paradas científicas | Pestaña **Ruta** (rover regional y EVA a pie) |
 | Imágenes de punto de vista | Enlaces por hito a las imágenes crudas del rover de ese sol |
@@ -55,7 +55,7 @@ GitHub Actions corre `check`, `build` y las pruebas en el navegador en cada camb
 | Terreno 1 m (`public/terrain/`) | HiRISE DTEEC_001488_1750_001752_1750 + PSP_001488_1750 | Dominio público |
 | Fotos recientes de Perseverance y Curiosity (`src/data/rawPhotos.ts`) | Fuentes públicas de imágenes crudas de NASA/JPL (`mars.nasa.gov`), leídas en vivo al abrir la misión | Necesita internet; si no responde, se muestra un enlace a la galería de la NASA. Esas fuentes rechazan navegadores automáticos, así que la prueba `e2e/photos.spec.ts` usa fotos de ejemplo |
 | Misiones (`src/data/missions.ts`) | Aterrizajes y hitos publicados por NASA/JPL | Los puntos intermedios de los recorridos son **aproximados (±1 km)**; conviene sustituirlos por los archivos MMGIS oficiales |
-| Radiación y ambiente | RAD y REMS de Curiosity, Viking (`src/data/environment.ts`) | Estimaciones de orden de magnitud |
+| Radiación y ambiente | Radiación estimada por elevación; REMS de Curiosity, Viking (`src/data/environment.ts`) | Estimaciones de orden de magnitud |
 
 Los datos de relieve (`public/mola32/` y `public/terrain/*.bin`) se guardan con **Git LFS**. Al clonar:
 

@@ -214,6 +214,7 @@ export const DATA_EN: Record<string, string> = {
   Geología: 'Geology',
   Relieve: 'Relief',
   Pendiente: 'Slope',
+  Radiación: 'Radiation',
   'Imagen real': 'Real image',
   'Color mineral': 'Mineral colour',
   'Llano: aterrizaje, base y campamento': 'Flat: landing, base and camp',

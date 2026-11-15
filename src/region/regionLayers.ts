@@ -3,17 +3,19 @@ import { LITE } from '../perf'
 import { wrapLon } from '../scene/mars'
 import { bakeGround, type GroundOutput } from './groundBake'
 import type { LayerJob } from './layers.worker'
-import { classOf, contourInterval, MAP_SIZE, slopeGrid, slopePixels, SLOPE_CLASSES, topoPixels, type HeightGrid } from './mapLayers'
+import { classOf, contourInterval, MAP_SIZE, radiationPixels, slopeGrid, slopePixels, SLOPE_CLASSES, topoPixels, type HeightGrid } from './mapLayers'
+import { doseAtElevation } from '../data/environment'
 import { REGION_EX, REGION_GRID, uvToLatLon, type Region } from './regionTerrain'
 
-export { RELIEF_RAMP, SLOPE_CLASSES, contourInterval } from './mapLayers'
+export { DOSE_RAMP, DOSE_SCALE, RELIEF_RAMP, SLOPE_CLASSES, contourInterval } from './mapLayers'
 
-export type RegionLayer = 'optical' | 'topo' | 'slope' | 'geology'
+export type RegionLayer = 'optical' | 'topo' | 'slope' | 'geology' | 'radiation'
 export const REGION_LAYERS: { id: RegionLayer; label: string; data: string }[] = [
   { id: 'optical', label: 'Óptica', data: 'Imagen' },
   { id: 'topo', label: 'Relieve', data: 'Topografía' },
   { id: 'slope', label: 'Pendiente', data: 'Peligro' },
   { id: 'geology', label: 'Geología', data: 'Geología' },
+  { id: 'radiation', label: 'Radiación', data: 'Radiación' },
 ]
 
 const OUT = 1024
@@ -59,6 +61,21 @@ export function slopeLegend(r: Region): SlopeLegend {
     maxDeg = Math.max(maxDeg, v)
   }
   return { share: share.map((n) => n / sl.length), maxDeg }
+}
+
+export interface RadiationLegend {
+  /** Estimated dose (mSv per sol) at the lowest and highest point of the patch. */
+  low: number
+  high: number
+}
+export const radiationLegend = (r: Region): RadiationLegend => ({
+  low: doseAtElevation(r.terrain.meta.zMin),
+  high: doseAtElevation(r.terrain.meta.zMax),
+})
+
+/** Radiation map of the patch (computed in the worker). */
+export async function radiationCanvas(r: Region) {
+  return toCanvas(await runJob<Uint8ClampedArray>({ kind: 'radiation', inp: heightGrid(r) }), MAP_SIZE)
 }
 
 /** Relief map of the patch (computed in the worker). */
@@ -281,7 +298,7 @@ const jobs = new Map<number, { resolve: (o: never) => void; job: LayerJob }>()
 /** Same work on the main thread: used when workers are unavailable or one fails. */
 function runHere(job: LayerJob): unknown {
   if (job.kind === 'bake') return bakeGround(job.inp)
-  return job.kind === 'topo' ? topoPixels(job.inp) : slopePixels(job.inp)
+  return job.kind === 'topo' ? topoPixels(job.inp) : job.kind === 'slope' ? slopePixels(job.inp) : radiationPixels(job.inp)
 }
 
 function failWorker() {

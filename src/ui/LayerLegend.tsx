@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
-import { RELIEF_RAMP, reliefLegend, slopeLegend, SLOPE_CLASSES, type RegionLayer } from '../region/regionLayers'
+import { DOSE_RAMP, DOSE_SCALE, radiationLegend, RELIEF_RAMP, reliefLegend, slopeLegend, SLOPE_CLASSES, type RegionLayer } from '../region/regionLayers'
 import type { Region } from '../region/regionTerrain'
 import { GEOLOGY_SOURCE, plainUnit, type GeoUnit } from '../data/geology'
 import { locale, t, tr, useLang } from '../i18n'
+import { SPE_FACTOR } from '../data/environment'
 
 /** Geology layer status: the unit under the patch centre and whether the map tiles loaded. */
 export interface GeologyState {
@@ -18,11 +19,14 @@ export function LayerLegend({ region, layer, geology }: { region: Region; layer:
   const lang = useLang()
   const relief = useMemo(() => reliefLegend(region), [region])
   const slope = useMemo(() => slopeLegend(region), [region])
+  const rad = useMemo(() => radiationLegend(region), [region])
   if (layer === 'optical') return null
   return (
     <div className="card-in absolute bottom-16 left-2 w-[min(92vw,330px)] rounded-2xl border border-white/10 bg-[#141a2b]/88 p-3.5 text-white shadow-2xl backdrop-blur sm:left-6">
       {layer === 'geology' ? (
         <GeologyLegend geology={geology} lang={lang} />
+      ) : layer === 'radiation' ? (
+        <RadiationLegendView low={rad.low} high={rad.high} />
       ) : layer === 'topo' ? (
         <>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">{t('Relieve · mapa topográfico', 'Relief · topographic map')}</p>
@@ -131,6 +135,48 @@ function GeologyLegend({ geology, lang }: { geology: GeologyState; lang: 'es' | 
         <a href={GEOLOGY_SOURCE} target="_blank" rel="noreferrer" className="text-orange-300 hover:underline">
           USGS SIM 3292 ↗
         </a>
+      </p>
+    </>
+  )
+}
+
+const msv = (v: number) => `${v.toLocaleString(locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} mSv`
+
+function RadiationLegendView({ low, high }: { low: number; high: number }) {
+  const pct = Math.round((high / low - 1) * 100)
+  return (
+    <>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-300">
+        {t('Radiación · ¿dónde hay más protección?', 'Radiation · where is there more shelter?')}
+      </p>
+      <p className="mt-1 text-xs text-white/70">
+        {t(
+          'La atmósfera de Marte frena parte de la radiación del espacio. En lo bajo (cráteres, cuencas) hay más aire encima y llega menos; en lo alto (montañas, volcanes) llega más. Cada línea une puntos con la misma dosis.',
+          'Mars’ atmosphere stops part of the radiation from space. Low ground (craters, basins) has more air overhead and gets less; high ground (mountains, volcanoes) gets more. Each line joins points with the same dose.',
+        )}
+      </p>
+      <div className="mt-2.5 h-3 rounded-full" style={{ background: `linear-gradient(90deg, ${DOSE_RAMP.map(([t, c]) => `${rgb(c)} ${t * 100}%`).join(', ')})` }} />
+      <div className="mt-1 flex justify-between font-mono text-[11px] text-white/60">
+        <span>{msv(DOSE_SCALE.min)}</span>
+        <span>{t('por sol · todo Marte', 'per sol · all of Mars')}</span>
+        <span>{msv(DOSE_SCALE.max)}</span>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2 text-center">
+        <div className="rounded-xl bg-white/5 p-2">
+          <p className="font-mono text-sm text-sky-300">{msv(low)}</p>
+          <p className="text-[11px] text-white/60">{t('parte más baja', 'lowest point')}</p>
+        </div>
+        <div className="rounded-xl bg-white/5 p-2">
+          <p className="font-mono text-sm text-sky-300">{msv(high)}</p>
+          <p className="text-[11px] text-white/60">{t('parte más alta (+{p} %)', 'highest point (+{p}%)', { p: pct })}</p>
+        </div>
+      </div>
+      <p className="mt-2 text-[11px] text-white/60">
+        {t(
+          'Estimación según la altura (Guo et al., 2017), no una medición. La escala va del fondo de Hellas a la cima de Olympus Mons. Una tormenta solar puede multiplicar la dosis (hasta ×{f} en la simulación), y la atmósfera sola no basta: hacen falta refugios.',
+          'Estimate from elevation (Guo et al., 2017), not a measurement. The scale runs from the floor of Hellas to the top of Olympus Mons. A solar storm can multiply the dose (up to ×{f} in the simulation), and the atmosphere alone is not enough: shelters are needed.',
+          { f: SPE_FACTOR },
+        )}
       </p>
     </>
   )

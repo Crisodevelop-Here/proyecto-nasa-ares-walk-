@@ -4,7 +4,7 @@ import { doseAtElevation, ROVER } from './data/environment'
 import { distanceKm, MISSIONS, type Milestone, type Mission } from './data/missions'
 import { STATION_BY_ID } from './data/stations'
 import { fetchGeoUnit } from './data/geology'
-import { geologyCanvas, opticalCanvas, REGION_LAYERS, slopeCanvas, topoCanvas, type Optical, type RegionLayer } from './region/regionLayers'
+import { geologyCanvas, opticalCanvas, radiationCanvas, REGION_LAYERS, slopeCanvas, topoCanvas, type Optical, type RegionLayer } from './region/regionLayers'
 import { buildRegion, frameFor, habitatFor, insidePatch, latLonToUV, missionStops, terrainStops, type Region } from './region/regionTerrain'
 import { planRoute } from './route/plan'
 import type { View } from './scene/MarsGlobe'
@@ -103,12 +103,12 @@ export default function App() {
       buildRegion(lat, lon, sizeKm).then(async (r) => {
         if (id !== request.current) return
         setRegion(r)
-        // Relief and slope maps are computed in a Web Worker; the terrain appears as soon as they're ready.
-        const [topoC, slopeC] = await Promise.all([topoCanvas(r), slopeCanvas(r)])
+        // Relief, slope and radiation maps are computed in a Web Worker; the terrain appears as soon as they're ready.
+        const [topoC, slopeC, radC] = await Promise.all([topoCanvas(r), slopeCanvas(r), radiationCanvas(r)])
         if (id !== request.current) return
         const topo = texture(topoC)
         // Until their images arrive, the photo and geology layers show the relief map.
-        setTextures({ optical: topo, topo, slope: texture(slopeC), geology: topo })
+        setTextures({ optical: topo, topo, slope: texture(slopeC), geology: topo, radiation: texture(radC) })
         geologyCanvas(r, topoC).then(
           (c) => {
             if (id !== request.current) return
@@ -280,7 +280,7 @@ export default function App() {
       else if (e.key === 'f' || e.key === 'F') {
         if (document.fullscreenElement) document.exitFullscreen()
         else document.documentElement.requestFullscreen().catch(() => {})
-      } else if (['1', '2', '3', '4'].includes(e.key)) {
+      } else if (['1', '2', '3', '4', '5'].includes(e.key)) {
         const i = Number(e.key) - 1
         if (view === 'site') {
           if (LAYERS[i]) setSiteLayer(LAYERS[i].id)

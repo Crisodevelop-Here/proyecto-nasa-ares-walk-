@@ -1,9 +1,9 @@
 // Heavy per-region image work off the main thread, so the page doesn't freeze while a region is
-// prepared: the ground bake (optical layer) and the relief and slope maps.
+// prepared: the ground bake (optical layer) and the relief, slope and radiation maps.
 import { bakeGround, type GroundInput } from './groundBake'
-import { slopePixels, topoPixels, type HeightGrid } from './mapLayers'
+import { radiationPixels, slopePixels, topoPixels, type HeightGrid } from './mapLayers'
 
-export type LayerJob = { kind: 'bake'; inp: GroundInput } | { kind: 'topo'; inp: HeightGrid } | { kind: 'slope'; inp: HeightGrid }
+export type LayerJob = { kind: 'bake'; inp: GroundInput } | { kind: 'topo'; inp: HeightGrid } | { kind: 'slope'; inp: HeightGrid } | { kind: 'radiation'; inp: HeightGrid }
 
 self.onmessage = (e: MessageEvent<{ id: number; job: LayerJob }>) => {
   const { id, job } = e.data
@@ -12,7 +12,7 @@ self.onmessage = (e: MessageEvent<{ id: number; job: LayerJob }>) => {
       const out = bakeGround(job.inp)
       self.postMessage({ id, out }, { transfer: [out.albedo.buffer, out.normal.buffer] })
     } else {
-      const out = job.kind === 'topo' ? topoPixels(job.inp) : slopePixels(job.inp)
+      const out = job.kind === 'topo' ? topoPixels(job.inp) : job.kind === 'slope' ? slopePixels(job.inp) : radiationPixels(job.inp)
       self.postMessage({ id, out }, { transfer: [out.buffer] })
     }
   } catch (err) {

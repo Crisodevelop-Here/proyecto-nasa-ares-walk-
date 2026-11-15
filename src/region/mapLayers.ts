@@ -2,7 +2,7 @@
  * Relief and slope map pixels for a regional patch. Pure functions over typed arrays (no DOM, no
  * three.js), so they run in the same Web Worker as the ground bake and the page doesn't freeze.
  */
-import { ROVER, SUIT } from '../data/environment'
+import { doseAtElevation, ROVER, SUIT } from '../data/environment'
 
 /** The elevation grid of a regional patch. */
 export interface HeightGrid {
@@ -201,6 +201,70 @@ export function slopePixels(h: HeightGrid, S = MAP_SIZE): Uint8ClampedArray {
       for (let ch = 0; ch < 3; ch++) data[i * 4 + ch] = (a[ch] + (b[ch] - a[ch]) * t) * hs
       // Hatch the ground the rover cannot cross.
       if (v >= ROVER.maxSlopeDeg && (x + y) % 10 < 2) for (let ch = 0; ch < 3; ch++) data[i * 4 + ch] *= 0.45
+      data[i * 4 + 3] = 255
+    }
+  return data
+}
+
+// ---------- radiation: estimated surface dose from the elevation (less atmosphere overhead = more dose) ----------
+
+/**
+ * Fixed scale for the whole planet, so a colour means the same dose everywhere: from the floor of
+ * Hellas (about −8.2 km, the most air overhead) to the top of Olympus Mons (about +21.9 km).
+ */
+export const DOSE_SCALE = { min: doseAtElevation(-8200), max: doseAtElevation(21_900) }
+
+/** Low dose (cool green) → high dose (red, then magenta). */
+export const DOSE_RAMP: [number, [number, number, number]][] = [
+  [0, [34, 120, 96]],
+  [0.25, [120, 176, 80]],
+  [0.5, [224, 200, 64]],
+  [0.75, [232, 112, 48]],
+  [1, [184, 40, 96]],
+]
+function doseColor(t: number): [number, number, number] {
+  t = Math.min(1, Math.max(0, t))
+  for (let i = 1; i < DOSE_RAMP.length; i++)
+    if (t <= DOSE_RAMP[i][0]) {
+      const [a, ca] = DOSE_RAMP[i - 1]
+      const [b, cb] = DOSE_RAMP[i]
+      const f = (t - a) / (b - a)
+      return [ca[0] + (cb[0] - ca[0]) * f, ca[1] + (cb[1] - ca[1]) * f, ca[2] + (cb[2] - ca[2]) * f]
+    }
+  return DOSE_RAMP[DOSE_RAMP.length - 1][1]
+}
+
+/** Spacing of the equal-dose lines, mSv per sol. */
+export const DOSE_STEP = 0.01
+
+/** Radiation map (RGBA, size × size): dose colour on the planet-wide scale, light hillshade, equal-dose lines. */
+export function radiationPixels(h: HeightGrid, S = MAP_SIZE): Uint8ClampedArray {
+  const { g, z } = sampler(h)
+  const s = shade(h)
+  const k = (g - 1) / (S - 1)
+  const D = new Float32Array(S * S)
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) D[y * S + x] = doseAtElevation(z(x * k, y * k))
+  const data = new Uint8ClampedArray(S * S * 4)
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const i = y * S + x
+      const [R, G, B] = doseColor((D[i] - DOSE_SCALE.min) / (DOSE_SCALE.max - DOSE_SCALE.min))
+      const hs = 0.62 + 0.5 * s[Math.min(g - 1, Math.round(y * k)) * g + Math.min(g - 1, Math.round(x * k))]
+      let r0 = R * hs
+      let g0 = G * hs
+      let b0 = B * hs
+      // Equal-dose lines, like contour lines but in mSv.
+      const band = Math.floor(D[i] / DOSE_STEP)
+      const right = x + 1 < S ? Math.floor(D[i + 1] / DOSE_STEP) : band
+      const down = y + 1 < S ? Math.floor(D[i + S] / DOSE_STEP) : band
+      if (right !== band || down !== band) {
+        r0 *= 0.55
+        g0 *= 0.55
+        b0 *= 0.55
+      }
+      data[i * 4] = r0
+      data[i * 4 + 1] = g0
+      data[i * 4 + 2] = b0
       data[i * 4 + 3] = 255
     }
   return data

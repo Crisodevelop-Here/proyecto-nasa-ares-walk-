@@ -334,7 +334,7 @@ function ObjectivesTab({ view, focus, region, optical, geology, missions }: Prop
           ? t('Mapa USGS–NASA SIM 3292 · aquí: {u}', 'USGS–NASA map SIM 3292 · here: {u}', { u: plainUnit(geology.unit.name, lang).kind.toLowerCase() })
           : t('Mapa geológico USGS–NASA SIM 3292 (vía Mars Trek)', 'USGS–NASA geologic map SIM 3292 (via Mars Trek)'),
     },
-    { type: t('Radiación', 'Radiation'), src: t('Modelo anclado a RAD (Curiosity), según la columna de atmósfera', 'Model anchored to RAD (Curiosity), by atmospheric column') },
+    { type: t('Radiación', 'Radiation'), src: t('Estimación según la altura del terreno y la columna de atmósfera', 'Estimate by terrain elevation and atmospheric column') },
     { type: t('Atmosférico', 'Atmospheric'), src: t('Presión y temperatura: REMS (Curiosity) y Viking', 'Pressure and temperature: REMS (Curiosity) and Viking') },
     { type: t('Histórico', 'Historical'), src: t('Recorridos e hitos de rovers y landers de NASA', 'Traverses and milestones of NASA rovers and landers') },
   ]
@@ -547,8 +547,8 @@ function SafetyTab({ view, focus, region, plan, sitePlan, solarStorm, setSolarSt
       </ul>
       <p className="text-xs text-white/55">
         {t(
-          'Estimaciones de orden de magnitud a partir de datos publicados (RAD, REMS, Viking). No son especificaciones de NASA.',
-          'Order-of-magnitude estimates from published data (RAD, REMS, Viking). Not NASA specifications.',
+          'Estimaciones de orden de magnitud a partir de datos publicados (REMS, Viking). No son especificaciones de NASA.',
+          'Order-of-magnitude estimates from published data (REMS, Viking). Not NASA specifications.',
         )}
       </p>
     </div>
